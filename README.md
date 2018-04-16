@@ -23,4 +23,4 @@
 6. `git push`
 
 ## みんなの進捗
-TBA
+![progress](https://github.com/tmu-nlp/NLPtutorial2018/blob/master/progress.png)  
