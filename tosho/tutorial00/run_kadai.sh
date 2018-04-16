@@ -1,1 +1,1 @@
-python count_words.py ./../../data/wiki-en-train.word
+python word_count.py ./../../data/wiki-en-train.word

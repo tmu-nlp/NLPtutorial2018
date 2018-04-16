@@ -29,4 +29,6 @@ else:
 
 if filename != None:
     ret = count_words(filename)
-    print('%d words' % (len(ret)))
+    # print('%d words' % (len(ret)))
+    for word, count in ret.items():
+        print('{0} {1}'.format(word, count))

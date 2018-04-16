@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from count_words import count_words
+from word_count import count_words
 
 class TestCountWords(unittest.TestCase):
     def test_count_words(self):
