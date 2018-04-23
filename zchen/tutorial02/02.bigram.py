@@ -8,7 +8,7 @@ def arguments_parse():
         description='Mode(train, test, None), file(src, dst)',
         add_help=True,
     )
-    parser.add_argument('-n', '--ngram', type=int, default=1)
+    parser.add_argument('-n', '--ngram', type=int, default=2)
     parser.add_argument('-m', '--mode', help='None mode is for view model with -s', type=str, choices=["train", "test"])
     parser.add_argument('-s', '--source', help='text for training or model for viewing', type=str)
     parser.add_argument('-d', '--destine', help='model.n to store or test text', type=str)
