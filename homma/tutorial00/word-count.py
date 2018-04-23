@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     args = arguments_parse()
 
-    my_file = open(args.file_name, "r")
+    my_file = open(args.file_name, "r", encoding="utf-8")
 
     countdict = dict()
     for line in my_file:
@@ -48,6 +48,6 @@ if __name__ == '__main__':
         sortedlist = []
 
     for i, (key, value) in enumerate(sortedlist):
-        if args.number and args.number <= i:
+        if args.number is not None and args.number <= i:
             break
         print(f'{key} {value}')
