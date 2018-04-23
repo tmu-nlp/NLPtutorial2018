@@ -1,4 +1,6 @@
 from pickle import load, dump
+from math import log
+
 s_tok = "s"
 
 
@@ -10,7 +12,7 @@ def n_gram(n, s):
 
 
 def make_padding(n):
-    # this maker is xml. so single ending should appended
+    # this maker is not xml. so single ending should appended
     sos = ["<%s>"  % s_tok] * n
     eos = ["</%s>" % s_tok]
     return sos, eos
@@ -31,9 +33,15 @@ def count_n_gram_from_file(n, fr):
     return count_dict
 
 
-def seal_model(count_dict):
-    total = sum(count_dict.values())
-    return total, { k: v/total for k, v in count_dict.items() }
+def cond_prob(count, prefix_count):
+    total = sum(count.values())
+    sos = "<%s>" % s_tok
+    if prefix_count:
+        # problem when cal <s><s>w in 3-gram
+        prefix_total = sum(prefix_count.values())
+        return total, { k: prefix_count[k[1:]]/prefix_total if k[-2] == sos else v/prefix_count[k[:-1]] for k, v in count.items() }
+    else:
+        return total, { k: v/total for k, v in count.items() }
 
 
 class N_Gram:
@@ -43,8 +51,10 @@ class N_Gram:
 
     def build_model(self, train_file):
         with open(train_file, 'r') as fr:
-            count_dict = count_n_gram_from_file(self.__n_gram, fr)
-        self.__model = (self.__n_gram,) + seal_model(count_dict)
+            return count_n_gram_from_file(self.__n_gram, fr)
+
+    def seal_model(self, count_dict, prefix_count_dict = None):
+        self.__model = (self.__n_gram,) + cond_prob(count_dict, prefix_count_dict)
         with open(self.__model_file, "wb") as fw:
             dump(self.__model, fw)
 
@@ -78,23 +88,28 @@ class N_Gram:
         return s
 
     def log_prob_of(self, test_file, oov_prob_count, base = None):
-        from math import log
         n, _, model = self.__model      # num_tokens is useless
         oov_prob, oov_count = oov_prob_count
         sos, eos = make_padding(n - 1)
 
         total_num_types = self.num_types + oov_count
         oov_term = oov_prob * ( 1.0 / total_num_types )
-        test_set_log_prob = 0.0
         with open(test_file, 'r') as fr:
             for line in fr:
                 lot = sos + line.strip().split() + eos
                 for ng in n_gram(n, lot):
                     ng_prob = model[ng] if ng in model else 0.0
                     ng_prob = ( 1 - oov_prob ) * ng_prob + oov_term
-                    test_set_log_prob += log(ng_prob, base) if base else log(ng_prob)
-                    # print(ng, ng_prob, ">", ( 1 - oov_prob ) * ng_prob + oov_term)
-        return test_set_log_prob
+                    yield log(ng_prob, base) if base else log(ng_prob)
+
+class N_Gram_Family:
+    def __init__(self, max_n, family_name):
+        self.__family = [N_Gram(i+1, family_name) for i in range(max_n)]
+
+    def build_model(train_file):
+        for model in self.__family:
+            model.build_model(train_file)
+
 
 if __name__ == "__main__":
     print(n_gram(1, "I am an NLPer"))

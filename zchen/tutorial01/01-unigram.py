@@ -8,7 +8,6 @@ def arguments_parse():
         description='Mode(train, test, None), file(src, dst)',
         add_help=True,
     )
-    parser.add_argument('-n', '--ngram', type=int, default=1)
     parser.add_argument('-m', '--mode', help='None mode is for view model with -s', type=str, choices=["train", "test"])
     parser.add_argument('-s', '--source', help='text for training or model for viewing', type=str)
     parser.add_argument('-d', '--destine', help='model.n to store or test text', type=str)
@@ -18,17 +17,18 @@ def arguments_parse():
 if __name__ == "__main__":
     args = arguments_parse()
     if args.mode == "train":
-        model = N_Gram(args.ngram, args.destine)
-        model.build_model(args.source)
+        model = N_Gram(1, args.destine)
+        cnt = model.build_model(args.source)
+        model.seal_model(cnt)
     elif args.mode == "test":
-        model = N_Gram(args.ngram, args.source)
+        model = N_Gram(1, args.source)
         model.load()
-        log_prob = model.log_prob_of(args.destine, (0.05, 999995), 2)
+        log_prob = sum(model.log_prob_of(args.destine, (0.05, 999995), 2))
         print("Test set '%s'" % args.destine, "\nLog probability:", log_prob)
         H = -log_prob / model.num_types # I still wonder why is not total_num_types!!
         print("Entropy:", H) # match the answer
         print("Perplexity: ", 2**H)
     else:
-        model = N_Gram(args.ngram, args.source)
+        model = N_Gram(1, args.source)
         model.load()
         print(model)
