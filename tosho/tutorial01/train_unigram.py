@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     words = count_words(train_file, includes_eos=arg.includes_eos)
     model = UniGram(arg.debug)
-    model.train(words, unk_rate=0.01)
+    model.train(words)
 
     print('testing model...')
 
