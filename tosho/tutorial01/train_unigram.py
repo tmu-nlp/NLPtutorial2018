@@ -1,6 +1,6 @@
 import os, sys
 sys.path.append(os.path.pardir)
-from tutorial00.word_count import count_words
+from tutorial00.word_count import count_words, load_file
 import math
 from random import sample
 
@@ -66,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('path_to_train_file')
     parser.add_argument('path_to_test_file')
     parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--includes-eos', action='store_true', default=False)
     arg = parser.parse_args()
 
     print('training model...')
@@ -73,14 +74,14 @@ if __name__ == '__main__':
     train_file = arg.path_to_train_file
     test_file = arg.path_to_test_file
 
-    words = count_words(train_file)
+    words = count_words(train_file, includes_eos=arg.includes_eos)
     model = UniGram(arg.debug)
-    model.train(words)
+    model.train(words, unk_rate=0.01)
 
     print('testing model...')
 
     test_data = open(test_file, 'r')
-    lines = map(lambda line: line.strip(), test_data)
+    lines = load_file(test_data, arg.includes_eos)
 
     model.estimate(lines)
 

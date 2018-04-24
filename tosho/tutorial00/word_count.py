@@ -2,12 +2,22 @@ import sys
 from collections import defaultdict
 import random
 
-def count_words(target_filename, verbose=False):
+def load_file(src, includes_eos=False):
+    '''
+    EOS(</s>)を考慮するかどうか指定して、
+    トレーニングデータを読み込みます。
+    '''
+    if includes_eos:
+        return map(lambda line: line.strip() + ' </s>', src)
+    else:
+        return map(lambda line: line.strip(), src)
+
+
+def count_words(target_filename, verbose=False, includes_eos=False):
     ret = defaultdict(lambda: 0)
     target_file = open(target_filename, 'r')
 
-    for line in target_file:
-        line = line.strip()
+    for line in load_file(target_file, includes_eos):
         if len(line) != 0:
             words = line.split(' ')
             for word in words:
