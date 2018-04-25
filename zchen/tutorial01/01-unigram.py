@@ -1,7 +1,8 @@
 import sys
 sys.path.append("..")
-from utils import N_Gram
+from utils import N_Gram, unigram_smooth_gen
 import argparse
+from math import log
 
 def arguments_parse():
     parser = argparse.ArgumentParser(
@@ -23,7 +24,9 @@ if __name__ == "__main__":
     elif args.mode == "test":
         model = N_Gram(1, args.source)
         model.load()
-        log_prob = sum(model.log_prob_of(args.destine, (0.05, 999995), 2))
+        inp = unigram_smooth_gen(0.95, 1000000)
+        log_prob = sum(log(inp(p), 2) for p in model.prob_of(args.destine, 2))
+
         print("Test set '%s'" % args.destine, "\nLog probability:", log_prob)
         H = -log_prob / model.num_types # I still wonder why is not total_num_types!!
         print("Entropy:", H) # match the answer

@@ -1,5 +1,4 @@
 from pickle import load, dump
-from math import log
 
 s_tok = "s"
 
@@ -19,8 +18,8 @@ def make_padding(n):
 
 
 def count_n_gram_from_file(n, fr):
-    from collections import defaultdict
-    count_dict = defaultdict(lambda : 0)
+    from collections import Counter
+    count_dict = Counter()
     # make padding
     sos, eos = make_padding( n-1 )
 
@@ -28,8 +27,7 @@ def count_n_gram_from_file(n, fr):
         # apply padding for list of tokens
         lot = line.strip().split(" ")
         lot = sos + lot + eos if s_tok else lot
-        for token in n_gram(n, lot):
-            count_dict[token] += 1
+        count_dict.update(n_gram(n, lot))
     return count_dict
 
 
@@ -42,6 +40,29 @@ def cond_prob(count, prefix_count):
         return total, { k: prefix_count[k[1:]]/prefix_total if k[-2] == sos else v/prefix_count[k[:-1]] for k, v in count.items() }
     else:
         return total, { k: v/total for k, v in count.items() }
+
+
+def unigram_smooth_gen(mod_prob, total_num_types):
+    if 0 < mod_prob < 1:
+        oov_prob = 1 - mod_prob
+        oov_term = oov_prob * ( 1.0 / total_num_types )
+        return lambda p: mod_prob * p + oov_term
+    if mod_prob == 0:
+        return lambda p: oov_term
+    elif mod_prob == 1:
+        return lambda p: p
+    raise ValueError("Invalid main weight.")
+
+
+def interpolate_gen(main_prob):
+    if 0 == main_prob:
+        return lambda p1, p2: p2
+    elif 1 == main_prob:
+        return lambda p1, p2: p1
+    elif 0 < main_prob < 1:
+        yet_prob = 1 - main_prob
+        return lambda p1, p2: main_prob * p1 + yet_prob * p2
+    raise ValueError("Invalid main weight.")
 
 
 class N_Gram:
@@ -87,29 +108,33 @@ class N_Gram:
             s += lop % (", ".join(k), v)
         return s
 
-    def log_prob_of(self, test_file, oov_prob_count, base = None):
-        n, _, model = self.__model      # num_tokens is useless
-        oov_prob, oov_count = oov_prob_count
+    def prob_of(self, test_file, base = None):
+        # num_tokens is useless
+        n, _, model = self.__model
         sos, eos = make_padding(n - 1)
 
-        total_num_types = self.num_types + oov_count
-        oov_term = oov_prob * ( 1.0 / total_num_types )
         with open(test_file, 'r') as fr:
             for line in fr:
                 lot = sos + line.strip().split() + eos
                 for ng in n_gram(n, lot):
-                    ng_prob = model[ng] if ng in model else 0.0
-                    ng_prob = ( 1 - oov_prob ) * ng_prob + oov_term
-                    yield log(ng_prob, base) if base else log(ng_prob)
+                    yield model[ng] if ng in model else 0.0
 
 class N_Gram_Family:
-    def __init__(self, max_n, family_name):
-        self.__family = [N_Gram(i+1, family_name) for i in range(max_n)]
+    def __init__(self, max_n, family_name, num_types_include_oov):
+        self.__family = [N_Gram(i, family_name) for i in range(1, max_n + 1)]
+        self.__total_types = num_types_include_oov
 
-    def build_model(train_file):
+    def seal_model(self, train_file):
+        pre_count = None
         for model in self.__family:
-            model.build_model(train_file)
+            count = model.build_model(train_file)
+            model.seal_model(count, pre_count)
+            pre_count = count
 
+    # same thing here
+    def log_prob_of(self, test_file, oov_prob_count, model_weights, base = None):
+        assert sum(model_weights) == 1 and len(model_weights) == len[self.__family]
+        return sum(m.log_prob_of(test_file, oov_prob_count, base) * w for m, w in zip(self.__family, model_weights))
 
 if __name__ == "__main__":
     print(n_gram(1, "I am an NLPer"))
