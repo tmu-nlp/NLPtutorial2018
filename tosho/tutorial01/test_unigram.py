@@ -1,6 +1,5 @@
 import os, sys
 sys.path.append(os.path.pardir)
-from tutorial00.word_count import load_file
 from tutorial01.train_unigram import UniGram
 
 if __name__ == '__main__':
@@ -9,25 +8,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('path_to_cache_file')
     parser.add_argument('path_to_test_file')
-    parser.add_argument('--debug', action='store_true', default=False)
-    parser.add_argument('--includes-eos', action='store_true', default=False)
     arg = parser.parse_args()
 
-    model = UniGram(arg.debug)
+    model = UniGram()
     model.load(arg.path_to_cache_file)
 
-    test_file = arg.path_to_test_file
+    print(f'test model with {arg.path_to_test_file}')
 
-    print('testing model...')
+    entropy, coverage, perplexity = model.estimate(arg.path_to_test_file)
 
-    test_data = open(test_file, 'r')
-    lines = load_file(test_data, arg.includes_eos)
+    print(f'entropy = {entropy}')
+    print(f'converage = {coverage}')
+    print(f'perplexity = {perplexity}')
 
-    model.estimate(lines)
-
-    print(f'entropy = {model.entropy}')
-    print(f'converage = {model.coverage}')
-    print(f'perplexity = {model.perplexity}')
-
-    test_data.close()    
     
+'''
+test model with ../../data/wiki-en-test.word
+entropy = 10.527337238682652
+converage = 0.895226024503591
+perplexity = 1475.8570129853622
+'''
