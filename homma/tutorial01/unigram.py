@@ -48,6 +48,7 @@ def test_unigram(test_file, trained='trained.csv'):
     V = 1e6
     W = 0
     H = 0
+    unk_cnt = 0
 
     # モデルの読み込み
     probabilities = {}
@@ -60,7 +61,6 @@ def test_unigram(test_file, trained='trained.csv'):
         words = line.strip().split(' ')
         words.append('</s>')
         W += len(words)
-        unk_cnt = 0
         for w in words:
             p = unk / V
             if w in probabilities:
@@ -95,4 +95,4 @@ if __name__ == '__main__':
 
 # python unigram.py ..\..\data\wiki-en-test.word
 # entropy = 10.526656347101143
-# coverage = 1.0
+# coverage = 0.895226024503591
