@@ -1,4 +1,3 @@
-import sys
 import argparse
 
 def arguments_parse():
@@ -36,7 +35,7 @@ if __name__ == '__main__':
         print('---')
 
     print('数単語の頻度')
-    if args.order == 0 or not args.order:
+    if  not args.order:
         sortedlist = sorted(countdict.items())
     elif args.order == 1:
         sortedlist = sorted(countdict.items(), reverse=True)
