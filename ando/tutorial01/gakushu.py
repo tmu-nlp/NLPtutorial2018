@@ -16,7 +16,7 @@ for line in lines:
             total += 1
         token+=1
 
-for i,j in dic.items():
-    with open("model.txt", "a") as fout:
+with open("model.txt", "w") as fout:
+    for i,j in dic.items():
         fout.write("{}:{}\t".format(i,j/token))
 print(total)
