@@ -7,13 +7,14 @@ import pickle
 
 class ZeroGram:
     '''
-    p(unk)の値を返すためのクラス
+    p(unk)の値を返すためのクラス。
+    補完係数はここでは考慮しないので、1/語彙数を返す。
     '''
     def __init__(self):
         self.unk = None
     
-    def train(self, vocab_size=10**6, unk_rate=0.05):
-        self.unk = unk_rate / vocab_size
+    def train(self, vocab_size=10**6):
+        self.unk = 1 / vocab_size
     
     def estimate(self, *words):
         return self.unk
@@ -30,7 +31,7 @@ class NGram:
     def train(self, train_file, vocab_size=10**6, unk_rate=0.05):
         if self.n == 1:
             self.n_minus_one_gram = ZeroGram()
-            self.n_minus_one_gram.train(vocab_size=vocab_size, unk_rate=unk_rate)
+            self.n_minus_one_gram.train(vocab_size=vocab_size)
         else:
             self.n_minus_one_gram = NGram(self.n - 1)
             self.n_minus_one_gram.train(train_file, vocab_size=vocab_size, unk_rate=unk_rate)

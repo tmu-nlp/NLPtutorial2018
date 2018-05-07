@@ -12,14 +12,11 @@ if __name__ == '__main__':
     parser.add_argument('--includes-eos', action='store_true', default=False)
     arg = parser.parse_args()
 
-    zerogram = ZeroGram()
-    zerogram.train()
-    print(zerogram.estimate())
-
-    model = NGram(2)
-    model.train(arg.path_to_train_file)
-    print(model.words)
-    print(model.estimate('a','b'))
+    for n, query in {2 : ['a', 'b'], 3 : ['a', 'b', 'c']}.items():
+        model = NGram(n)
+        model.train(arg.path_to_train_file)
+        print(model.words)
+        print(model.estimate(*query))
 
 
 '''
