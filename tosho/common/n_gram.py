@@ -1,7 +1,6 @@
 import os, sys
 sys.path.append(os.path.pardir)
-from common.utils import count_words
-from collections import defaultdict
+from common.utils import count_words, parse_file
 import math
 import pickle
 
@@ -23,7 +22,7 @@ class NGram:
     def __init__(self, n_gram=1):
         self.n = n_gram
         
-        self.words = defaultdict(int)
+        self.words = None
         self.unk_rate = None
 
         self.n_minus_one_gram = None
@@ -48,6 +47,15 @@ class NGram:
     def estimate(self, *words):
         p_n = self.words[words]
         return (1. - self.unk_rate) * p_n + self.unk_rate * self.n_minus_one_gram.estimate(words[1:])
+
+    # def entropy(self, test_filename):
+    #     entropy = 0.
+    #     W = 0
+
+    #     with open(test_filename, 'r') as test_file:
+    #         doc = parse_file(test_file)
+    #         for tokens_in_line in doc:
+
 
     # def entropy(self, test_filename):
     #     entropy = 0.
