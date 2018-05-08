@@ -1,7 +1,7 @@
 import os, sys
 sys.path.append(os.path.pardir)
 from common.n_gram import NGram
-from common.blenders import SimpleBlender
+from common.blenders import SimpleBlender, MultiLayerBlender
 
 if __name__ == '__main__':
     import argparse
@@ -15,7 +15,11 @@ if __name__ == '__main__':
     model.load(arg.path_to_cache_file)
     model.print_params()
 
-    blender = SimpleBlender()
+    # blender = SimpleBlender()
+    blender = MultiLayerBlender(unk_rates={
+        1: 0.05, 
+        2: 0.05
+    })
     model.set_blender(blender)
 
     print(f'loaded model({model.n}-gram) from {arg.path_to_cache_file}')
