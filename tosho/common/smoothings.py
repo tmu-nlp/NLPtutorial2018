@@ -4,9 +4,9 @@ sys.path.append(os.path.pardir)
 from common.utils import count_words
 from collections import defaultdict
 
-class SimpleBlender:
+class SimpleSmoothing:
     '''
-    常に一定
+    n-gramによらず常に一定
     '''
     def __init__(self, unk_rate=0.05):
         self.unk = unk_rate
@@ -14,9 +14,9 @@ class SimpleBlender:
     def unk_rate(self, *words):
         return self.unk
 
-class MultiLayerBlender:
+class MultiLayerSmoothing:
     '''
-    n-gramごとの補完係数
+    n-gram別に補完係数を設定する
     '''
     def __init__(self, default_unk_rate=0.05, unk_rates={}):
         self.unk_rates = defaultdict(lambda : default_unk_rate)
