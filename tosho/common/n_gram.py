@@ -18,10 +18,20 @@ class ZeroGram:
     def estimate(self, *words):
         return self.unk
 
-    def save(self, cache_filename):
-        this_cache_filename = f'{cache_filename.strip(".pyc")}_0.pyc'
-        with open(this_cache_filename, 'wb') as cache_file:
+    def save(self, cache_filename, append=False):
+        mode = 'wb'
+        if append:
+            mode = 'ab'
+
+        # 自身のモデルを保存する
+        with open(cache_filename, mode) as cache_file:
             pickle.dump((self.unk), cache_file)
+    
+    def load_cache(self, cache):
+        self.unk = pickle.load(cache)
+
+    def print_params(self):
+        print(f'p(unk) = {self.unk}')
 
 class NGram:
     '''
@@ -64,10 +74,13 @@ class NGram:
 
         # 補完に使用する確率を求める
         sub_words = words[1:]
-        p_n_1 = self.n_minus_one_gram.estimate(sub_words)
+        p_n_1 = self.n_minus_one_gram.estimate(*sub_words)
         
         # 未知語率を考慮して確率を計算する
-        return (1. - self.unk_rate) * p_n + self.unk_rate * p_n_1
+        p = (1. - self.unk_rate) * p_n + self.unk_rate * p_n_1
+        # print(f'{words} | (1. - {self.unk_rate}) * {p_n} + {self.unk_rate} * {p_n_1} = {p}')
+
+        return p
 
     def entropy(self, test_filename):
         entropy = 0.
@@ -79,19 +92,45 @@ class NGram:
                 for pair in seq:
                     p = self.estimate(*pair)
                     entropy += math.log(p, 2)
-                    # print(f'{pair} | {p} | {entropy}')
                     W += 1
         
         return -1 * entropy / W
     
-    def save(self, cache_filename):        
+    def save(self, cache_filename, append=False):
+        '''
+        依存関係にあるモデルも含めて１つのファイルに保存する
+        '''
+        mode = 'wb'
+        if append:
+            mode = 'ab'
+
         # 自身のモデルを保存する
-        this_cache_filename = f'{cache_filename.strip(".pyc")}_{self.n}.pyc'
-        with open(this_cache_filename, 'wb') as cache_file:
+        with open(cache_filename, mode) as cache_file:
             pickle.dump((self.n, self.words, self.unk_rate), cache_file)
         
         # (n-1)-gram のモデルを保存する
-        self.n_minus_one_gram.save(cache_filename)
+        self.n_minus_one_gram.save(cache_filename, append=True)
+    
+    def load(self, cache_filename):
+        with open(cache_filename, 'rb') as cache:
+            self.load_cache(cache)
+
+    def load_cache(self, cache):
+        self.n, self.words, self.unk_rate = pickle.load(cache)
+        
+        if self.n == 1:
+            self.n_minus_one_gram = ZeroGram()
+        else:
+            self.n_minus_one_gram = NGram(self.n - 1)
+        
+        self.n_minus_one_gram.load_cache(cache)
+    
+    def print_params(self):
+        print(f'{len(self.words)} types ({self.n}-gram)')
+        for key, value in sorted(self.words.items(), key=lambda item: item[1], reverse=True)[:10]:
+            print(f'p({key}) = {value}')
+        
+        self.n_minus_one_gram.print_params()
 
 '''
 p(b|a) = l * p(b|a) + (1 - l) * p(b)

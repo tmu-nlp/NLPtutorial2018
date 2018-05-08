@@ -25,12 +25,9 @@ def count_unigram_words(target):
     return word_count
 
 def parse_file(src, n_gram):
-    if n_gram == 1:
-        return parse_unigram_file(src)
-    else:
-        for tokens_in_line in parse_unigram_file(src):
-            # １つずつズラした配列を作成する
-            yield zip(*[tokens_in_line[i:] for i in range(n_gram)])
+    for tokens_in_line in parse_unigram_file(src):
+        # １つずつズラした配列を作成する
+        yield zip(*[tokens_in_line[i:] for i in range(n_gram)])
 
 def parse_unigram_file(src):
     for line in src:

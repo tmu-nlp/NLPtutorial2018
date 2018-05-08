@@ -1,0 +1,46 @@
+import os, sys
+sys.path.append(os.path.pardir)
+from common.utils import count_words
+from common.n_gram import ZeroGram, NGram
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', '--path-to-train-file')
+    parser.add_argument('-c', '--path-to-cache-file')
+    parser.add_argument('-n', '--n-gram', type=int, required=True)
+    arg = parser.parse_args()
+
+    print(f'train model with {arg.path_to_train_file}')
+
+    model = NGram(arg.n_gram)
+    model.train(arg.path_to_train_file)
+
+    model.print_params()
+
+    model.save(arg.path_to_cache_file)
+
+    print(f'saved parameters to {arg.path_to_cache_file}')
+
+'''
+$ python train_ngram.py -t ../../test/02-train-input.txt -c test-bigram.pyc -n 2
+train model with ../../test/02-train-input.txt
+6 types (2-gram)
+p(('<s>', 'a')) = 0.25
+p(('a', 'b')) = 0.25
+p(('b', 'c')) = 0.125
+p(('c', '</s>')) = 0.125
+p(('b', 'd')) = 0.125
+p(('d', '</s>')) = 0.125
+6 types (1-gram)
+p(('<s>',)) = 0.2
+p(('a',)) = 0.2
+p(('b',)) = 0.2
+p(('</s>',)) = 0.2
+p(('c',)) = 0.1
+p(('d',)) = 0.1
+p(unk) = 1e-06
+saved parameters to test-bigram.pyc
+$ 
+'''
