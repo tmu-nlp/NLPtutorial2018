@@ -18,6 +18,11 @@ class ZeroGram:
     def estimate(self, *words):
         return self.unk
 
+    def save(self, cache_filename):
+        this_cache_filename = f'{cache_filename.strip(".pyc")}_0.pyc'
+        with open(this_cache_filename, 'wb') as cache_file:
+            pickle.dump((self.unk), cache_file)
+
 class NGram:
     '''
     N-Gramでエントロピーを計算するためのクラス。
@@ -78,6 +83,15 @@ class NGram:
                     W += 1
         
         return -1 * entropy / W
+    
+    def save(self, cache_filename):        
+        # 自身のモデルを保存する
+        this_cache_filename = f'{cache_filename.strip(".pyc")}_{self.n}.pyc'
+        with open(this_cache_filename, 'wb') as cache_file:
+            pickle.dump((self.n, self.words, self.unk_rate), cache_file)
+        
+        # (n-1)-gram のモデルを保存する
+        self.n_minus_one_gram.save(cache_filename)
 
 '''
 p(b|a) = l * p(b|a) + (1 - l) * p(b)

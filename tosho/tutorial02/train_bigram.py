@@ -14,6 +14,7 @@ if __name__ == '__main__':
 
     model = NGram(arg.n_gram)
     model.train(arg.path_to_train_file)
+    model.save(arg.path_to_cache_file)
 
 '''
 p(b|a) = l * p(b|a) + (1 - l) * p(b)
