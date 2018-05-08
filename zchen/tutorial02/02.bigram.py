@@ -1,6 +1,6 @@
 import sys
 sys.path.append("..")
-from utils import N_Gram
+from utils import N_Gram_Family
 import argparse
 
 def arguments_parse():
@@ -18,20 +18,14 @@ def arguments_parse():
 if __name__ == "__main__":
     args = arguments_parse()
     if args.mode == "train":
-        model        = N_Gram(args.ngram,   args.destine)
-        prefix_model = N_Gram(args.ngram-1, args.destine)
-        count        = model.build_model(args.source)
-        prefix_count = prefix_model.build_model(args.source)
-        model.seal_model(count, prefix_count)
-    elif args.mode == "test":
-        model = N_Gram(args.ngram, args.source)
+        model = N_Gram_Family(args.ngram, args.destine)
+        model.seal_model(args.source)
+    elif args.mode == "test": # use family instead
+        model = N_Gram_Family(args.ngram, args.source)
         model.load()
-        log_prob = sum(model.log_prob_of(args.destine, (0.05, 999995), 2))
-        print("Test set '%s'" % args.destine, "\nLog probability:", log_prob)
-        H = -log_prob / model.num_types # I still wonder why is not total_num_types!!
-        print("Entropy:", H) # match the answer
-        print("Perplexity: ", 2**H)
+        print("Test set '%s'" % args.destine)
+        print("Entropy:", model.entropy_of(args.destine, [0.95, 0.95], 1000000)) # match the answer
     else:
-        model = N_Gram(args.ngram, args.source)
+        model = N_Gram_Family(args.ngram, args.source)
         model.load()
         print(model)

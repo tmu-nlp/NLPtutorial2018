@@ -1,5 +1,6 @@
 from pickle import load, dump
 from collections import Counter
+from math import log
 
 s_tok = "s"
 
@@ -43,15 +44,7 @@ def cond_prob(count, prefix_count):
 
 
 def unigram_smooth_gen(mod_prob, total_num_types):
-    if 0 < mod_prob < 1:
-        oov_prob = 1 - mod_prob
-        oov_term = oov_prob * ( 1.0 / total_num_types )
-        return lambda p: mod_prob * p + oov_term
-    if mod_prob == 0:
-        return lambda p: oov_term
-    elif mod_prob == 1:
-        return lambda p: p
-    raise ValueError("Invalid main weight.")
+    return lambda p: interpolate_gen(mod_prob)(p, 1 / total_num_types)
 
 
 def interpolate_gen(main_prob):
@@ -63,6 +56,7 @@ def interpolate_gen(main_prob):
         yet_prob = 1 - main_prob
         return lambda p1, p2: main_prob * p1 + yet_prob * p2
     raise ValueError("Invalid main weight.")
+
 
 def _check_oov_call(oov_func):
     def wrapper(*args):
@@ -110,7 +104,7 @@ class N_Gram:
     def num_types(self):
         return len(self._model[2].keys())
 
-    def __repr__(self):
+    def __str__(self):
         s = "%d-gram model based on %d tokens in %s types\n"
         s = s % (self.num_gram, self.num_tokens, self.num_types)
         ml = max(sum(len(ngi) for ngi in ng) for ng in self._model[2].keys())
@@ -155,9 +149,17 @@ class N_Gram:
         return in_vocab / (in_vocab + len(self._oov_counter))
 
 class N_Gram_Family:
-    def __init__(self, max_n, family_name, num_types_include_oov):
+    def __init__(self, max_n, family_name):
         self._family = [N_Gram(i, family_name) for i in range(1, max_n + 1)]
-        self._total_types = num_types_include_oov
+
+    def __getitem__(self, index):
+        return self._family[index]
+
+    def __len__(self):
+        return len(self._family)
+
+    def __str__(self):
+        return "----\n".join(str(s) for s in self._family)
 
     def seal_model(self, train_file):
         pre_count = None
@@ -166,12 +168,32 @@ class N_Gram_Family:
             model.seal_model(count, pre_count)
             pre_count = count
 
-    # same thing here
-    def log_prob_of(self, test_file, oov_prob_count, model_weights, base = None):
-        assert sum(model_weights) == 1 and len(model_weights) == len[self._family]
-        return sum(m.log_prob_of(test_file, oov_prob_count, base) * w for m, w in zip(self._family, model_weights))
+    def load(self):
+        for model in self._family:
+            model.load()
+
+    def entropy_of(self, test_file, model_weights, num_types_include_oov, base = None):
+        assert all(0<=w<=1 for w in model_weights) and len(model_weights) == len(self._family)
+        weights = tuple(interpolate_gen(w) for w in model_weights)
+        _log = (lambda p: log(p, base)) if base else log
+        log_prob = 0.0
+        family = tuple(model.prob_of(test_file) for model in self._family)
+        processing = True
+        num_token = 0
+        while processing:
+            w_prob_by_last_model = 1 / num_types_include_oov
+            for model_gen, weight in zip(family, weights):
+                try:
+                    w_prob = next(model_gen)
+                    log_prob += _log(weight(w_prob, w_prob_by_last_model))
+                except StopIteration:
+                    processing = False
+                    break
+            num_token += 1
+        return log_prob / num_token
 
 if __name__ == "__main__":
+    # write test here
     print(n_gram(1, "I am an NLPer"))
     print(n_gram(2, "I am an NLPer"))
 
