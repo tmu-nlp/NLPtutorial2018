@@ -18,14 +18,8 @@ class ZeroGram:
     def estimate(self, *words):
         return self.unk
 
-    def save(self, cache_filename, append=False):
-        mode = 'wb'
-        if append:
-            mode = 'ab'
-
-        # 自身のモデルを保存する
-        with open(cache_filename, mode) as cache_file:
-            pickle.dump((self.unk), cache_file)
+    def save_cache(self, cache):
+        pickle.dump((self.unk), cache)
     
     def load_cache(self, cache):
         self.unk = pickle.load(cache)
@@ -96,20 +90,18 @@ class NGram:
         
         return -1 * entropy / W
     
-    def save(self, cache_filename, append=False):
+    def save(self, cache_filename):
         '''
         依存関係にあるモデルも含めて１つのファイルに保存する
         '''
-        mode = 'wb'
-        if append:
-            mode = 'ab'
-
+        with open(cache_filename, 'wb') as cache:
+            self.save_cache(cache)
+    
+    def save_cache(self, cache):
         # 自身のモデルを保存する
-        with open(cache_filename, mode) as cache_file:
-            pickle.dump((self.n, self.words, self.unk_rate), cache_file)
-        
+        pickle.dump((self.n, self.words, self.unk_rate), cache)
         # (n-1)-gram のモデルを保存する
-        self.n_minus_one_gram.save(cache_filename, append=True)
+        self.n_minus_one_gram.save_cache(cache)
     
     def load(self, cache_filename):
         with open(cache_filename, 'rb') as cache:
