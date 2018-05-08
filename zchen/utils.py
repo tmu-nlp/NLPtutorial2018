@@ -1,4 +1,5 @@
 from pickle import load, dump
+from collections import Counter
 
 s_tok = "s"
 
@@ -18,7 +19,6 @@ def make_padding(n):
 
 
 def count_n_gram_from_file(n, fr):
-    from collections import Counter
     count_dict = Counter()
     # make padding
     sos, eos = make_padding( n-1 )
@@ -64,77 +64,112 @@ def interpolate_gen(main_prob):
         return lambda p1, p2: main_prob * p1 + yet_prob * p2
     raise ValueError("Invalid main weight.")
 
+def _check_oov_call(oov_func):
+    def wrapper(*args):
+        if args[0]._N_Gram__iv_counter is None:
+            msg = "Calling '%s' before 'prof_of'" % oov_func.__name__
+            msg += ", or lacking count = True in 'prob_of'"
+            raise ValueError(msg)
+        return oov_func(*args)
+    return wrapper
+
 
 class N_Gram:
     def __init__(self, n, model_name):
-        self.__model_file = model_name + ".%d" % n
-        self.__n_gram     = n
+        self._model_file = model_name + ".%d" % n
+        self._n_gram     = n
+        self.__iv_counter = None
+        self._oov_counter = None
 
     def build_model(self, train_file):
         with open(train_file, 'r') as fr:
-            return count_n_gram_from_file(self.__n_gram, fr)
+            return count_n_gram_from_file(self._n_gram, fr)
 
     def seal_model(self, count_dict, prefix_count_dict = None):
-        self.__model = (self.__n_gram,) + cond_prob(count_dict, prefix_count_dict)
-        with open(self.__model_file, "wb") as fw:
-            dump(self.__model, fw)
+        self._model = (self._n_gram,) + cond_prob(count_dict, prefix_count_dict)
+        with open(self._model_file, "wb") as fw:
+            dump(self._model, fw)
 
     def load(self):
-        with open(self.__model_file, "rb") as fr:
+        with open(self._model_file, "rb") as fr:
             model = load(fr)
-        if model[0] == self.__n_gram:
-            self.__model = model
+        if model[0] == self._n_gram:
+            self._model = model
         else:
-            raise ValueError("Trying to load unmatched N gram.")
+            raise ValueError("Trying to load unmatched %d-gram file." % model[0])
 
     @property
     def num_gram(self):
-        return self.__model[0]
+        return self._model[0]
 
     @property
     def num_tokens(self):
-        return self.__model[1]
+        return self._model[1]
 
     @property
     def num_types(self):
-        return len(self.__model[2].keys())
+        return len(self._model[2].keys())
 
     def __repr__(self):
         s = "%d-gram model based on %d tokens in %s types\n"
         s = s % (self.num_gram, self.num_tokens, self.num_types)
-        ml = max(sum(len(ngi) for ngi in ng) for ng in self.__model[2].keys())
+        ml = max(sum(len(ngi) for ngi in ng) for ng in self._model[2].keys())
         lop = "%-" + str(ml) + "s%f\n"
-        for k, v in sorted(self.__model[2].items(), key = lambda x:x[1]):
+        for k, v in sorted(self._model[2].items(), key = lambda x:x[1]):
             s += lop % (", ".join(k), v)
         return s
 
-    def prob_of(self, test_file, base = None):
+    def prob_of(self, test_file, count = False):
         # num_tokens is useless
-        n, _, model = self.__model
+        n, _, model = self._model
         sos, eos = make_padding(n - 1)
+        self.__iv_counter = Counter() if count else None
+        self._oov_counter = Counter() if count else None
 
         with open(test_file, 'r') as fr:
             for line in fr:
                 lot = sos + line.strip().split() + eos
                 for ng in n_gram(n, lot):
-                    yield model[ng] if ng in model else 0.0
+                    if ng in model:
+                        if count: self.__iv_counter[ng] += 1
+                        yield model[ng]
+                    else:
+                        if count: self._oov_counter[ng] += 1
+                        yield 0.0
+
+    @property
+    @_check_oov_call
+    def recent_oov(self):
+        return self._oov_counter
+
+    @property
+    @_check_oov_call
+    def recent_coverage_by_token(self):
+        in_vocab = sum(self.__iv_counter.values())
+        return in_vocab / (in_vocab + sum(self._oov_counter.values()))
+
+    @property
+    @_check_oov_call
+    def recent_coverage_by_type(self):
+        in_vocab = len(self.__iv_counter)
+        return in_vocab / (in_vocab + len(self._oov_counter))
 
 class N_Gram_Family:
     def __init__(self, max_n, family_name, num_types_include_oov):
-        self.__family = [N_Gram(i, family_name) for i in range(1, max_n + 1)]
-        self.__total_types = num_types_include_oov
+        self._family = [N_Gram(i, family_name) for i in range(1, max_n + 1)]
+        self._total_types = num_types_include_oov
 
     def seal_model(self, train_file):
         pre_count = None
-        for model in self.__family:
+        for model in self._family:
             count = model.build_model(train_file)
             model.seal_model(count, pre_count)
             pre_count = count
 
     # same thing here
     def log_prob_of(self, test_file, oov_prob_count, model_weights, base = None):
-        assert sum(model_weights) == 1 and len(model_weights) == len[self.__family]
-        return sum(m.log_prob_of(test_file, oov_prob_count, base) * w for m, w in zip(self.__family, model_weights))
+        assert sum(model_weights) == 1 and len(model_weights) == len[self._family]
+        return sum(m.log_prob_of(test_file, oov_prob_count, base) * w for m, w in zip(self._family, model_weights))
 
 if __name__ == "__main__":
     print(n_gram(1, "I am an NLPer"))
