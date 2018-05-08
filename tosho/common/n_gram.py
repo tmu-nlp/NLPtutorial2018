@@ -12,6 +12,9 @@ class ZeroGram:
     def __init__(self):
         self.unk = None
     
+    def set_blender(self, blender):
+        pass
+
     def train(self, vocab_size=10**6):
         self.unk = 1 / vocab_size
     
@@ -34,10 +37,14 @@ class NGram:
     def __init__(self, n_gram=1):
         self.n = n_gram                 # n-gram
         self.words = None               # 学習した条件付き確率
-        self.unk_rate = None            # 未知語率
         self.n_minus_one_gram = None    # (n-1)-gram. 出現確率を計算するときに使用する
+        self.blender = None
 
-    def train(self, train_file, vocab_size=10**6, unk_rate=0.05):
+    def set_blender(self, blender):
+        self.blender = blender
+        self.n_minus_one_gram.set_blender(blender)
+
+    def train(self, train_file, vocab_size=10**6):
         # unigramの(n-1)-gramにはZeroGramクラスを使用する
         # これは estimate で 1/vocab_size を常に返すクラスである
         if self.n == 1:
@@ -45,16 +52,13 @@ class NGram:
             self.n_minus_one_gram.train(vocab_size=vocab_size)
         else:
             self.n_minus_one_gram = NGram(self.n - 1)
-            self.n_minus_one_gram.train(train_file, vocab_size=vocab_size, unk_rate=unk_rate)
+            self.n_minus_one_gram.train(train_file, vocab_size=vocab_size)
         
         # 各n-gramの確率を計算する
         self.words = count_words(train_file, self.n)
         total_tokens = sum(self.words.values())
         for key, count in self.words.items():
             self.words[key] = count / total_tokens
-        
-        # 保管係数を計算する
-        self.unk_rate = unk_rate
 
     def estimate(self, *words):
         '''
@@ -69,9 +73,12 @@ class NGram:
         # 補完に使用する確率を求める
         sub_words = words[1:]
         p_n_1 = self.n_minus_one_gram.estimate(*sub_words)
+
+        # 補完係数を求める
+        unk_rate = self.blender.unk_rate(*words)
         
         # 未知語率を考慮して確率を計算する
-        p = (1. - self.unk_rate) * p_n + self.unk_rate * p_n_1
+        p = (1. - unk_rate) * p_n + unk_rate * p_n_1
         # print(f'{words} | (1. - {self.unk_rate}) * {p_n} + {self.unk_rate} * {p_n_1} = {p}')
 
         return p
@@ -99,7 +106,7 @@ class NGram:
     
     def save_cache(self, cache):
         # 自身のモデルを保存する
-        pickle.dump((self.n, self.words, self.unk_rate), cache)
+        pickle.dump((self.n, self.words), cache)
         # (n-1)-gram のモデルを保存する
         self.n_minus_one_gram.save_cache(cache)
     
@@ -108,7 +115,7 @@ class NGram:
             self.load_cache(cache)
 
     def load_cache(self, cache):
-        self.n, self.words, self.unk_rate = pickle.load(cache)
+        self.n, self.words = pickle.load(cache)
         
         if self.n == 1:
             self.n_minus_one_gram = ZeroGram()
