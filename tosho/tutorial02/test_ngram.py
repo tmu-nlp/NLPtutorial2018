@@ -1,7 +1,7 @@
 import os, sys
 sys.path.append(os.path.pardir)
 from common.n_gram import NGram
-from common.blenders import SimpleBlender, MultiLayerBlender
+from common.blenders import SimpleBlender, MultiLayerBlender, WittenBell
 
 if __name__ == '__main__':
     import argparse
@@ -9,6 +9,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--path_to_cache_file')
     parser.add_argument('-t', '--path_to_test_file')
+    parser.add_argument('-b', '--path_to_train_file', required=False)
     arg = parser.parse_args()
 
     model = NGram()
@@ -16,10 +17,11 @@ if __name__ == '__main__':
     model.print_params()
 
     # blender = SimpleBlender()
-    blender = MultiLayerBlender(unk_rates={
-        1: 0.05, 
-        2: 0.05
-    })
+    # blender = MultiLayerBlender(unk_rates={
+    #     1: 0.05, 
+    #     2: 0.05
+    # })
+    blender = WittenBell(arg.path_to_train_file)
     model.set_blender(blender)
 
     print(f'loaded model({model.n}-gram) from {arg.path_to_cache_file}')

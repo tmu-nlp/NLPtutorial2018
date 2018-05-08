@@ -79,7 +79,7 @@ class NGram:
         
         # 未知語率を考慮して確率を計算する
         p = (1. - unk_rate) * p_n + unk_rate * p_n_1
-        print(f'{words} | (1. - {unk_rate}) * {p_n} + {unk_rate} * {p_n_1} = {p}')
+        # print(f'{words} | (1. - {unk_rate}) * {p_n} + {unk_rate} * {p_n_1} = {p}')
 
         return p
 

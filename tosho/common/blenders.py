@@ -1,4 +1,7 @@
 
+import os, sys
+sys.path.append(os.path.pardir)
+from common.utils import count_words
 from collections import defaultdict
 
 class SimpleBlender:
@@ -28,5 +31,25 @@ class WittenBell:
     '''
     Witten Bell 平滑化
     '''
+    def __init__(self, train_filename):
+        # c(w)
+        self.word_c = count_words(train_filename, 1)
+
+        # u(w)
+        two_grams = count_words(train_filename, 2)
+        self.word_u = defaultdict(int)
+        for pair in two_grams.keys():
+            key = pair[0:1]
+            self.word_u[key] += 1
+        
     def unk_rate(self, *words):
-        pass
+        key = words[-1:]
+        
+        c = self.word_c[key]
+        u = self.word_u[key]
+
+        # 未知語の場合
+        if c == 0 and u == 0:
+            return 1
+        else:
+            return u / (c + u)
