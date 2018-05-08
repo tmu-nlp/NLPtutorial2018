@@ -19,15 +19,18 @@ class ZeroGram:
         return self.unk
 
 class NGram:
+    '''
+    N-Gramでエントロピーを計算するためのクラス。
+    '''
     def __init__(self, n_gram=1):
-        self.n = n_gram
-        
-        self.words = None
-        self.unk_rate = None
-
-        self.n_minus_one_gram = None
+        self.n = n_gram                 # n-gram
+        self.words = None               # 学習した条件付き確率
+        self.unk_rate = None            # 未知語率
+        self.n_minus_one_gram = None    # (n-1)-gram. 出現確率を計算するときに使用する
 
     def train(self, train_file, vocab_size=10**6, unk_rate=0.05):
+        # unigramの(n-1)-gramにはZeroGramクラスを使用する
+        # これは estimate で 1/vocab_size を常に返すクラスである
         if self.n == 1:
             self.n_minus_one_gram = ZeroGram()
             self.n_minus_one_gram.train(vocab_size=vocab_size)
@@ -45,41 +48,36 @@ class NGram:
         self.unk_rate = unk_rate
 
     def estimate(self, *words):
+        '''
+        Parameters
+        =====
+        words : 文中の順番で配列になっていることを想定する。
+                A cat sat ... で trigram であれば、['A', 'cat', 'sat'] となる。
+        '''
+        # 学習した確率
         p_n = self.words[words]
-        return (1. - self.unk_rate) * p_n + self.unk_rate * self.n_minus_one_gram.estimate(words[1:])
 
-    # def entropy(self, test_filename):
-    #     entropy = 0.
-    #     W = 0
-
-    #     with open(test_filename, 'r') as test_file:
-    #         doc = parse_file(test_file)
-    #         for tokens_in_line in doc:
-
-
-    # def entropy(self, test_filename):
-    #     entropy = 0.
-    #     W = 0
-    #     unks = 0
+        # 補完に使用する確率を求める
+        sub_words = words[1:]
+        p_n_1 = self.n_minus_one_gram.estimate(sub_words)
         
-    #     with open(test_filename, 'r') as test_file:
-    #         doc = parse_file(test_file, self.includes_eos)
-    #         for line in doc:
-    #             for word in line.split(' '):
-    #                 if word in self.words:
-    #                     entropy += math.log(self.words[word], 2)
-    #                 else:
-    #                     entropy += math.log(self.unk, 2)
-    #                     # 未知語の数をカウントする（カバレッジ用）
-    #                     unks += 1
-    #                 W += 1
+        # 未知語率を考慮して確率を計算する
+        return (1. - self.unk_rate) * p_n + self.unk_rate * p_n_1
+
+    def entropy(self, test_filename):
+        entropy = 0.
+        W = 0
+
+        with open(test_filename, 'r') as test_file:
+            doc = parse_file(test_file, self.n)
+            for seq in doc:
+                for pair in seq:
+                    p = self.estimate(*pair)
+                    entropy += math.log(p, 2)
+                    # print(f'{pair} | {p} | {entropy}')
+                    W += 1
         
-    #     entropy = -1 * entropy / W
-    #     coverage = (W - unks) / W
-    #     perplexity = math.pow(2, entropy)
-
-    #     return entropy, coverage, perplexity
-
+        return -1 * entropy / W
 
 '''
 p(b|a) = l * p(b|a) + (1 - l) * p(b)

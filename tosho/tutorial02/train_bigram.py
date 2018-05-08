@@ -9,15 +9,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('path_to_train_file')
     parser.add_argument('path_to_cache_file')
-    parser.add_argument('--includes-eos', action='store_true', default=False)
+    parser.add_argument('-n', '--n-gram', type=int, required=True)
     arg = parser.parse_args()
 
-    for n, query in {2 : ['a', 'b'], 3 : ['a', 'b', 'c']}.items():
-        model = NGram(n)
-        model.train(arg.path_to_train_file)
-        print(model.words)
-        print(model.estimate(*query))
-
+    model = NGram(arg.n_gram)
+    model.train(arg.path_to_train_file)
 
 '''
 p(b|a) = l * p(b|a) + (1 - l) * p(b)
