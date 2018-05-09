@@ -7,21 +7,21 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--path-to-train-file')
-    parser.add_argument('-c', '--path-to-cache-file')
+    parser.add_argument('-t', '--train-file')
+    parser.add_argument('-o', '--output-file')
     parser.add_argument('-n', '--n-gram', type=int, required=True)
     arg = parser.parse_args()
 
-    print(f'train model with {arg.path_to_train_file}')
+    print(f'train model with {arg.train_file}')
 
     model = NGram(arg.n_gram)
-    model.train(arg.path_to_train_file)
+    model.train(arg.train_file)
 
     model.print_params()
 
-    model.save(arg.path_to_cache_file)
+    model.save_params(arg.output_file)
 
-    print(f'saved parameters to {arg.path_to_cache_file}')
+    print(f'saved parameters to {arg.output_file}')
 
 '''
 $ python train_ngram.py -t ../../test/02-train-input.txt -c test-bigram.pyc -n 2

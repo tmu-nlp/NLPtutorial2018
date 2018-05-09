@@ -7,27 +7,26 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--path_to_cache_file')
-    parser.add_argument('-t', '--path_to_test_file')
-    parser.add_argument('-b', '--path_to_train_file', required=False)
+    parser.add_argument('-t', '--test-file')
+    parser.add_argument('-p', '--param-file')
     arg = parser.parse_args()
 
     model = NGram()
-    model.load(arg.path_to_cache_file)
+    model.load_params(arg.param_file)
     model.print_params()
 
     blender = SimpleSmoothing()
-    blender = MultiLayerSmoothing(unk_rates={
-        1: 0.1, 
-        2: 0.1
-    })
+    # blender = MultiLayerSmoothing(unk_rates={
+    #     1: 0.1, 
+    #     2: 0.1
+    # })
     # blender = WittenBell(arg.path_to_train_file)
     model.set_blender(blender)
 
-    print(f'loaded model({model.n}-gram) from {arg.path_to_cache_file}')
-    print(f'test model with {arg.path_to_test_file}')
+    print(f'loaded model({model.n}-gram) from {arg.param_file}')
+    print(f'test model with {arg.test_file}')
 
-    entropy = model.entropy(arg.path_to_test_file)
+    entropy = model.entropy(arg.test_file)
     print(f'entropy = {entropy}')
 
 '''

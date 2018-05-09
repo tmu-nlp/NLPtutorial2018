@@ -21,11 +21,13 @@ class ZeroGram:
     def estimate(self, *words):
         return self.unk
 
-    def save_cache(self, cache):
-        pickle.dump((self.unk), cache)
+    def get_params(self):
+        params = {}
+        params[0] = self.unk
+        return params
     
-    def load_cache(self, cache):
-        self.unk = pickle.load(cache)
+    def set_params(self, params):
+        self.unk = params[0]
 
     def print_params(self):
         print(f'p(unk) = {self.unk}')
@@ -97,32 +99,36 @@ class NGram:
         
         return -1 * entropy / W
     
-    def save(self, cache_filename):
+    def save_params(self, file_name='params.pkl'):
         '''
         依存関係にあるモデルも含めて１つのファイルに保存する
         '''
-        with open(cache_filename, 'wb') as cache:
-            self.save_cache(cache)
+        params = self.get_params()
+        with open(file_name, 'wb') as f:
+            pickle.dump(params, f)
     
-    def save_cache(self, cache):
-        # 自身のモデルを保存する
-        pickle.dump((self.n, self.words), cache)
-        # (n-1)-gram のモデルを保存する
-        self.n_minus_one_gram.save_cache(cache)
-    
-    def load(self, cache_filename):
-        with open(cache_filename, 'rb') as cache:
-            self.load_cache(cache)
+    def get_params(self):
+        params = self.n_minus_one_gram.get_params()
 
-    def load_cache(self, cache):
-        self.n, self.words = pickle.load(cache)
+        params[self.n] = self.words
+        return params
         
+    def load_params(self, file_name='params.pkl'):
+        with open(file_name, 'rb') as f:
+            params = pickle.load(f)
+        
+        self.set_params(params)
+
+    def set_params(self, params):
+        self.n = max(params.keys())
+        self.words = params.pop(self.n)
+        # params.remove(self.n)
+
         if self.n == 1:
             self.n_minus_one_gram = ZeroGram()
         else:
             self.n_minus_one_gram = NGram(self.n - 1)
-        
-        self.n_minus_one_gram.load_cache(cache)
+        self.n_minus_one_gram.set_params(params)
     
     def print_params(self):
         print(f'{len(self.words)} types ({self.n}-gram)')
