@@ -1,5 +1,5 @@
 from pickle import load, dump
-from collections import Counter
+from collections import Counter, defaultdict
 from math import log
 
 s_tok = "s"
@@ -36,11 +36,22 @@ def cond_prob(count, prefix_count):
     total = sum(count.values())
     sos = "<%s>" % s_tok
     if prefix_count:
-        # problem when cal <s><s>w in 3-gram
         prefix_total = sum(prefix_count.values())
-        return total, { k: prefix_count[k[1:]]/prefix_total if k[-2] == sos else v/prefix_count[k[:-1]] for k, v in count.items() }
+        return total, { k: prefix_count[k[1:]]/prefix_total
+                           if k[-2] == sos else
+                           v/prefix_count[k[:-1]]
+                       for k, v in count.items() }
     else:
         return total, { k: v/total for k, v in count.items() }
+
+
+def witten_bell_weights(ngram_count):
+    type_variation_count = defaultdict(lambda:[0,set()])
+    for ngram, count in ngram_count.items():
+        t = type_variation_count[ngram[0]]
+        t[0] += count
+        t[1].add(ngram[1:])
+    return {w:t[0]/(t[0]+len(t[1])) for w, t in type_variation_count.items()}
 
 
 def unigram_smooth_gen(mod_prob, total_num_types):
@@ -80,14 +91,15 @@ class N_Gram:
             return count_n_gram_from_file(self._n_gram, fr)
 
     def seal_model(self, count_dict, prefix_count_dict = None):
-        self._model = (self._n_gram,) + cond_prob(count_dict, prefix_count_dict)
+        witten_bell = witten_bell_weights(count_dict) if self._n_gram > 1 else None
+        self._model = (self._n_gram, witten_bell) + cond_prob(count_dict, prefix_count_dict)
         with open(self._model_file, "wb") as fw:
             dump(self._model, fw)
 
     def load(self):
         with open(self._model_file, "rb") as fr:
             model = load(fr)
-        if model[0] == self._n_gram:
+        if model[0] == self._n_gram and len(model) == 4:
             self._model = model
         else:
             raise ValueError("Trying to load unmatched %d-gram file." % model[0])
@@ -96,26 +108,31 @@ class N_Gram:
     def num_gram(self):
         return self._model[0]
 
+    def weight_of(self, t):
+        w = self._model[1].get(t, 0.0)
+        return w, 1-w
+
     @property
     def num_tokens(self):
-        return self._model[1]
+        return self._model[-2]
 
     @property
     def num_types(self):
-        return len(self._model[2].keys())
+        return len(self._model[-1].keys())
 
     def __str__(self):
+        model = self._model[-1]
         s = "%d-gram model based on %d tokens in %s types\n"
         s = s % (self.num_gram, self.num_tokens, self.num_types)
-        ml = max(sum(len(ngi) for ngi in ng) for ng in self._model[2].keys())
-        lop = "%-" + str(ml) + "s%f\n"
-        for k, v in sorted(self._model[2].items(), key = lambda x:x[1]):
+        ml = max(sum(len(ngi)+2 for ngi in ng) for ng in model.keys())
+        lop = "%-{}s%f\n".format(ml)
+        for k, v in sorted(model.items(), key = lambda x:x[1]):
             s += lop % (", ".join(k), v)
         return s
 
     def prob_of(self, test_file, count = False):
         # num_tokens is useless
-        n, _, model = self._model
+        n, wb, _, model = self._model
         sos, eos = make_padding(n - 1)
         self.__iv_counter = Counter() if count else None
         self._oov_counter = Counter() if count else None
@@ -124,12 +141,13 @@ class N_Gram:
             for line in fr:
                 lot = sos + line.strip().split() + eos
                 for ng in n_gram(n, lot):
+                    tok = ng[-1]
                     if ng in model:
                         if count: self.__iv_counter[ng] += 1
-                        yield model[ng]
+                        yield tok, model[ng]
                     else:
                         if count: self._oov_counter[ng] += 1
-                        yield 0.0
+                        yield tok, 0.0
 
     @property
     @_check_oov_call
@@ -172,33 +190,37 @@ class N_Gram_Family:
         for model in self._family:
             model.load()
 
-    def entropy_of(self, test_file, model_weights, num_types_include_oov, base = None):
-        assert all(0<=w<=1 for w in model_weights) and len(model_weights) == len(self._family)
-        weights = tuple(interpolate_gen(w) for w in model_weights)
-        _log = (lambda p: log(p, base)) if base else log
-        log_prob = 0.0
-        family = tuple(model.prob_of(test_file) for model in self._family)
+    def entropy_of(self, test_file, weights, num_types_include_oov, base = None):
+        assert weights is None or len( weights ) == len( self._family )
+        if weights:
+            assert all( 0 <= w <= 1 for w in weights)
+            weights = tuple( interpolate_gen(w) for w in weights )
+        else:
+            weights    = (None,) * len(self._family)
+        family     = tuple( model.prob_of(test_file) for model in self._family )
+        _log       = (lambda p: log(p, base)) if base else log
+        num_token  = 0
+        log_prob   = 0
         processing = True
-        num_token = 0
-        while processing:
+        while processing: # for a token in each n-gram model
             w_prob_by_last_model = 1 / num_types_include_oov
-            for model_gen, weight in zip(family, weights):
+            for model, model_gen, weight in zip(self._family, family, weights):
                 try:
-                    w_prob = next(model_gen)
-                    log_prob += _log(weight(w_prob, w_prob_by_last_model))
+                    w, w_prob = next(model_gen)
                 except StopIteration:
                     processing = False
                     break
+                if weight:
+                    inter_prob = weight(w_prob, w_prob_by_last_model)
+                    log_prob  += _log(inter_prob)
+                elif model.num_gram > 1:
+                    wb, cwb    = model.weight_of(w)
+                    inter_prob = wb * w_prob + cwb * w_prob_by_last_model
+                    log_prob  += _log(inter_prob)
+                w_prob_by_last_model = w_prob
             num_token += 1
         return log_prob / num_token
 
 if __name__ == "__main__":
-    # write test here
-    print(n_gram(1, "I am an NLPer"))
-    print(n_gram(2, "I am an NLPer"))
-
-    import sys
-    with open(sys.argv[1], 'r') as fr:
-        count_dict = count_n_gram_from_file(2, fr)
-        for pair in seal_model(count_dict).items():
-            print( *pair )
+    bigram_count = {('Tottori', 'is'):2, ('Tottori', 'city'):1}
+    print(witten_bell_weights(bigram_count))

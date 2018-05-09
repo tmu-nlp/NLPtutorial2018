@@ -4,22 +4,22 @@ from utils import N_Gram_Family
 import unittest
 
 answer = '''1-gram model based on 8 tokens in 5 types
-c   0.125000
-d   0.125000
-a   0.250000
-b   0.250000
-</s>0.250000
+c     0.125000
+d     0.125000
+a     0.250000
+b     0.250000
+</s>  0.250000
 ----
 2-gram model based on 8 tokens in 6 types
-<s>, a0.250000
-b, c 0.500000
-b, d 0.500000
-a, b 1.000000
-c, </s>1.000000
-d, </s>1.000000
+<s>, a   0.250000
+b, c     0.500000
+b, d     0.500000
+a, b     1.000000
+c, </s>  1.000000
+d, </s>  1.000000
 '''
 
-class TestStringMethods(unittest.TestCase):
+class TestNGramMethods(unittest.TestCase):
 
     def test_train(self):
         model = N_Gram_Family(2, "dummy")
@@ -34,7 +34,12 @@ class TestStringMethods(unittest.TestCase):
     def test_entropy(self):
         model = N_Gram_Family(2, "dummy")
         model.load()
-        self.assertEqual(model.entropy_of("../../test/02-train-input.txt", [0.95, 0.95], 1000000), -1.93958023291905)
+        self.assertEqual(model.entropy_of("../../test/02-train-input.txt", [0.95, 0.95], 1000000), -1.9194670955774922)
+
+    def test_entropy_witten_bell(self):
+        model = N_Gram_Family(2, "dummy")
+        model.load()
+        self.assertEqual(model.entropy_of("../../test/02-train-input.txt", None, 1000000), -0.9790540358424883)
 
 if __name__ == "__main__":
     unittest.main()

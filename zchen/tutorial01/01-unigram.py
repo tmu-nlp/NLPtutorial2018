@@ -25,7 +25,7 @@ if __name__ == "__main__":
         model = N_Gram(1, args.source)
         model.load()
         inp = unigram_smooth_gen(0.95, 1000000) # inp avoids log(0.0)
-        log_prob = sum(log(inp(p), 2) for p in model.prob_of(args.destine, count = True))
+        log_prob = sum(log(inp(p), 2) for _, p in model.prob_of(args.destine, count = True))
 
         print("Test set '%s'" % args.destine)
         print("Log probability:", log_prob)
