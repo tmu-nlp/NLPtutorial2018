@@ -2,6 +2,12 @@ import sys
 from collections import defaultdict
 import random
 
+def count_tokens(tokens):
+    counts = defaultdict(int)
+    for token in tokens:
+        counts[token] += 1
+    return counts
+
 def count_words(target_filename, n_gram=1):
     with open(target_filename, 'r') as target_file:
         if n_gram == 1:
@@ -39,3 +45,42 @@ def parse_unigram_file(src):
             words.append('</s>')
             words.insert(0, '<s>')
             yield words
+
+def load_data(file_name, n):
+    return list(iterate_data(file_name, n))
+
+def iterate_data(file_name, n):
+    with open(file_name, 'r') as f:
+        for token in iterate_tokens(f, n):
+            yield token
+
+def iterate_tokens(doc, n):
+    '''
+    doc : list or iterator
+    ドキュメント内に含まれるn-gramトークンを列挙する
+    '''
+    for line in iterate_lines(doc):
+        words = list(iterate_words(line))
+        for token in zip(*[words[i:] for i in range(n)]):\
+            yield token
+
+def iterate_lines(doc):
+    for line in doc:
+        line = line.strip()
+        if len(line) == 0:
+            continue
+        else:
+            yield line
+
+def iterate_words(line):
+    yield '<s>'
+    for word in line.split():
+        yield word
+    yield '</s>'
+
+if __name__ == '__main__':
+    tokens = load_data('../../test/02-train-input.txt', 2)
+    tokens2 = iterate_data('../../test/02-train-input.txt', 2)
+    for pair in zip(tokens, tokens2):
+        print(f'{pair} | {pair[0] == pair[1]}')
+    
