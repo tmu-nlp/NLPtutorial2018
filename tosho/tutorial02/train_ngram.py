@@ -1,6 +1,7 @@
 import os, sys
 sys.path.append(os.path.pardir)
 from common.n_gram import NGram
+from common.smoothings import SimpleSmoothing, MultiLayerSmoothing, WittenBell
 from os import path
 
 if __name__ == '__main__':
@@ -11,19 +12,37 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output-file')
     parser.add_argument('-n', '--n-gram', type=int, required=True)
     parser.add_argument('-s', '--smoothing', choices=('simple', 'multilayer', 'witten-bell'))
+    parser.add_argument('-r', '--unk-rate', type=float, nargs='*', required=False)
     arg = parser.parse_args()
 
-    print(f'train model with {arg.train_file}')
+    print(f'train model with {arg.train_file} with {arg.smoothing} smoothing')
 
     model = NGram(arg.n_gram)
     with open(arg.train_file, 'r') as f:
         model.train(list(f))
-
     model.print_params()
+
+    if arg.smoothing == 'simple':
+        smoothing = SimpleSmoothing(arg.unk_rate[0])
+    elif arg.smoothing == 'multilayer':
+        rates = {}
+        for i, rate in enumerate(arg.unk_rate):
+            rates[i] = rate
+        smoothing = MultiLayerSmoothing(rates)
+    elif arg.smoothing == 'witten-bell':
+        with open(arg.train_file, 'r') as f:
+            smoothing = WittenBell(arg.n_gram)
+            smoothing.train(list(f))
 
     model.save_params(arg.output_file)
 
+    filename_body, filename_ext = path.splitext(arg.output_file)
+    smoothing_output_file = f'{filename_body}-{arg.smoothing}{filename_ext}'
+
+    smoothing.save_params(smoothing_output_file)
+    
     print(f'saved parameters to {arg.output_file}')
+    print(f'saved smoothing params to {smoothing_output_file}')
 
 '''
 $ python train_ngram.py -t ../../test/02-train-input.txt -c test-bigram.pyc -n 2

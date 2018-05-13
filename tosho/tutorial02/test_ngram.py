@@ -2,6 +2,7 @@ import os, sys
 sys.path.append(os.path.pardir)
 from common.n_gram import NGram
 from common.smoothings import SimpleSmoothing, MultiLayerSmoothing, WittenBell
+import pickle
 
 if __name__ == '__main__':
     import argparse
@@ -9,18 +10,24 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--test-file')
     parser.add_argument('-p', '--param-file')
+    parser.add_argument('-s', '--smoothing-file')
     arg = parser.parse_args()
 
     model = NGram()
     model.load_params(arg.param_file)
     model.print_params()
 
-    smoothing = SimpleSmoothing()
-    # blender = MultiLayerSmoothing(unk_rates={
-    #     1: 0.1, 
-    #     2: 0.1
-    # })
-    # blender = WittenBell(arg.path_to_train_file)
+    smoothing = None
+    with open(arg.smoothing_file, 'rb') as f:
+        smoothing_name = pickle.load(f)[0]
+    if smoothing_name == 'simple':
+        smoothing = SimpleSmoothing()
+    elif smoothing_name == 'multilayer':
+        smoothing = MultiLayerSmoothing()
+    elif smoothing_name == 'witten-bell':
+        smoothing = WittenBell()
+    smoothing.load_params(arg.smoothing_file)
+
     model.set_smoothing(smoothing)
 
     print(f'loaded model({model.n}-gram) from {arg.param_file}')
