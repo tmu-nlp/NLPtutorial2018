@@ -1,6 +1,6 @@
 import sys
 sys.path.append("..")
-from utils import N_Gram_Family
+from utils.n_gram import N_Gram_Family
 import argparse
 
 def arguments_parse():
@@ -19,13 +19,16 @@ if __name__ == "__main__":
     args = arguments_parse()
     if args.mode == "train":
         model = N_Gram_Family(args.ngram, args.destine)
-        model.seal_model(args.source)
+        model.build(args.source)
     elif args.mode == "test": # use family instead
         model = N_Gram_Family(args.ngram, args.source)
         model.load()
+        model.seal()
+        model.prepare([0.95, 0.95], 1/1000000)
         print("Test set '%s'" % args.destine)
-        print("Entropy:", model.entropy_of(args.destine, [0.95, 0.95], 1000000)) # match the answer
+        print("Entropy:", model.entropy_of(args.destine)) # match the answer
     else:
         model = N_Gram_Family(args.ngram, args.source)
         model.load()
+        model.seal()
         print(model)

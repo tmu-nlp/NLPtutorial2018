@@ -1,6 +1,6 @@
 import sys
 sys.path.append("..")
-from utils import N_Gram, unigram_smooth_gen
+from utils.n_gram import N_Gram, unigram_smooth_gen
 import argparse
 from math import log
 
@@ -19,13 +19,12 @@ if __name__ == "__main__":
     args = arguments_parse()
     if args.mode == "train":
         model = N_Gram(1, args.destine)
-        cnt = model.build_model(args.source)
-        model.seal_model(cnt)
+        model.build(args.source)
     elif args.mode == "test":
         model = N_Gram(1, args.source)
-        model.load()
+        model.load().seal()
         inp = unigram_smooth_gen(0.95, 1000000) # inp avoids log(0.0)
-        log_prob = sum(log(inp(p), 2) for _, p in model.prob_of(args.destine, count = True))
+        log_prob = sum(log(inp(p), 2) for _, p in model.prob_of(args.destine, count_oov = True))
 
         print("Test set '%s'" % args.destine)
         print("Log probability:", log_prob)

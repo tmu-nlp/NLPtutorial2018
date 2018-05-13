@@ -1,6 +1,6 @@
 import sys
 sys.path.append("..")
-from utils import N_Gram_Family
+from utils.n_gram import N_Gram_Family
 import unittest
 
 answer = '''1-gram model based on 8 tokens in 5 types
@@ -43,32 +43,40 @@ class TestNGramMethods(unittest.TestCase):
 
     def test_train(self):
         model = N_Gram_Family(2, "dummy")
-        model.seal_model("../../test/02-train-input.txt")
+        model.build("../../test/02-train-input.txt")
+        model.seal()
         self.assertEqual(str(model), answer)
 
     def test_load(self):
         model = N_Gram_Family(2, "dummy")
         model.load()
+        model.seal()
         self.assertEqual(str(model), answer)
 
     def test_entropy(self):
         model = N_Gram_Family(2, "dummy")
         model.load()
-        self.assertEqual(model.entropy_of("../../test/02-train-input.txt", [0.95, 0.95], 1000000), -1.9194670955774922)
+        model.seal()
+        model.prepare([0.95, 0.95], 1/1000000)
+        self.assertEqual(model.entropy_of("../../test/02-train-input.txt"), -1.920456383244844)
 
     def test_entropy_witten_bell(self):
         model = N_Gram_Family(2, "dummy")
         model.load()
-        self.assertEqual(model.entropy_of("../../test/02-train-input.txt", None, 1000000), -0.9790540358424883)
+        model.seal()
+        model.prepare(None, 1/1000000)
+        self.assertEqual(model.entropy_of("../../test/02-train-input.txt"), -2.365348396962379)
 
     def test_train_3(self):
         model = N_Gram_Family(3, "dummy")
-        model.seal_model("../../test/02-train-input.txt")
+        model.build("../../test/02-train-input.txt")
+        model.seal()
         self.assertEqual(str(model), answer_3)
 
     def test_load_3(self):
         model = N_Gram_Family(3, "dummy")
         model.load()
+        model.seal()
         self.assertEqual(str(model), answer_3)
 
 if __name__ == "__main__":

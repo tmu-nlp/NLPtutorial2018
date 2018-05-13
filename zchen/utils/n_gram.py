@@ -3,6 +3,18 @@ from collections import Counter, defaultdict
 from math import log
 
 s_tok = "s"
+_log_base = None
+_second_change_log_base = False
+
+
+def log_gen(new_base = None):
+    global _log_base, _second_change_log_base
+    if _second_change_log_base:
+        raise Warning("Please pay attention to consistency!")
+    if new_base and new_base != _log_base:
+        _log_base = new_base
+        _second_change_log_base = True
+    return (lambda p: log(p, _log_base)) if _log_base else log
 
 
 def n_gram(n, s):
@@ -19,17 +31,18 @@ def make_padding(n):
     return sos, eos
 
 
-def count_n_gram_from_file(n, fr):
+def count_n_gram_from_file(n, fname):
     '''Turn file into n-gram count with affixes'''
     count_dict = Counter()
     # make padding
     sos, eos = make_padding( n-1 )
 
-    for line in fr:
-        # apply padding for list of tokens
-        lot = line.strip().split(" ")
-        lot = sos + lot + eos if s_tok else lot
-        count_dict.update(n_gram(n, lot))
+    with open(fname, 'r') as fr:
+        for line in fr:
+            # apply padding for list of tokens
+            lot = line.strip().split(" ")
+            lot = sos + lot + eos if s_tok else lot
+            count_dict.update(n_gram(n, lot))
     return count_dict
 
 
@@ -39,12 +52,12 @@ def cond_prob(count, prefix_count):
     sos = "<%s>" % s_tok
     if prefix_count:
         prefix_total = sum(prefix_count.values())
-        return total, { k: prefix_count[k[1:]]/prefix_total
-                           if k[-2] == sos else
-                           v/prefix_count[k[:-1]]
-                       for k, v in count.items() }
+        return { k: prefix_count[k[1:]]/prefix_total
+                    if k[-2] == sos else
+                    v/prefix_count[k[:-1]]
+                for k, v in count.items() }
     else:
-        return total, { k: v/total for k, v in count.items() }
+        return { k: v/total for k, v in count.items() }
 
 
 def witten_bell_weights(ngram_count):
@@ -91,23 +104,27 @@ class N_Gram:
         self._n_gram     = n
         self.__iv_counter = None
         self._oov_counter = None
+        self._prob        = None
+        self._cond_prob   = None
+        self._paddings   = make_padding(n - 1)
 
-    def build_model(self, train_file):
-        with open(train_file, 'r') as fr:
-            return count_n_gram_from_file(self._n_gram, fr)
-
-    def seal_model(self, count_dict, prefix_count_dict = None):
-        '''When adding more parameters, save them in the tuple for sealing them.
-        Save them in the form (elem1, elem2,) + another_tuple. Don\'t forget to delete.'''
-        witten_bell = witten_bell_weights(count_dict) if self._n_gram > 1 else None
-        self._model = (self._n_gram, witten_bell) + cond_prob(count_dict, prefix_count_dict)
+    def build(self, train_file):
+        count       = count_n_gram_from_file(self._n_gram, train_file)
+        witten_bell = witten_bell_weights(count) if self._n_gram > 1 else None
+        self._model = (self._n_gram, witten_bell, count)
         with open(self._model_file, "wb") as fw:
             dump(self._model, fw)
+        return self
+
+    def seal(self, prefix_count_dict = None):
+        self._cond_prob = cond_prob(self.raw_count, prefix_count_dict)
+        if self._n_gram == 1:
+            self._prob = self._cond_prob
 
     def load(self):
         with open(self._model_file, "rb") as fr:
             model = load(fr)
-        if model[0] == self._n_gram and len(model) == 4:
+        if model[0] == self._n_gram and len(model) == 3:
             self._model = model
         else:
             raise ValueError("Trying to load unmatched %d-gram file." % model[0])
@@ -121,41 +138,60 @@ class N_Gram:
         return w, 1-w
 
     @property
-    def num_tokens(self):
-        return self._model[-2]
+    def raw_count(self):
+        return self._model[-1]
 
     @property
     def num_types(self):
-        return len(self._model[-1].keys())
+        return len(self.raw_count)
+
+    @property
+    def num_tokens(self):
+        return sum(self.raw_count.values())
+
+    def make_padding(self, lot):
+        sos, eos = self.paddings
+        return sos + log + eos
 
     def __str__(self):
-        model = self._model[-1]
         s = "%d-gram model based on %d tokens in %s types"
         s += " with Witten-Bell weights\n" if self.num_gram > 1 else '\n'
         s = s % (self.num_gram, self.num_tokens, self.num_types)
-        ml = max(sum(len(ngi)+2 for ngi in ng) for ng in model.keys())
-        lop = "%-{}s%f\n".format(ml)
-        for k, v in sorted(model.items(), key = lambda x:x[1]):
-            s += lop % (", ".join(k), v)
+        s += self.cond_prob_str()
         if self.num_gram > 1:
-            s += "\t- Witten Bell weights:\n"
-            for k,w in self._model[1].items():
-                s += "\tw%-15s" % ("'" + k + "'") + '%f\n' % w
+            s += "\t- Witten Bell weights:\n" + self.witten_bell_str()
         return s
 
-    def prob_of(self, test_file, count_oov = False):
-        '''Should test the file with conditional chain.
-        Multiply the yielded value or add log-linearly.'''
+    def witten_bell_str(self):
+        s = ""
+        for k,w in self._model[1].items():
+            s += "\tw%-15s" % ("'" + k + "'") + '%f\n' % w
+        return s
+
+    def cond_prob_str(self):
+        model = self._cond_prob
+        ml = max(sum(len(ngi)+2 for ngi in ng) for ng in model.keys())
+        lop = "%-{}s%f\n".format(ml)
+        s = ''
+        for k, v in sorted(model.items(), key = lambda x:x[1]):
+            s += lop % (", ".join(k), v)
+        return s
+
+    def prob_of(self, ng):
+        if self._prob is None:
+            self._prob = cond_prob(self.raw_count)
+        return self._prob[ng]
+
+    def cond_prob_of(self, test_file, count_oov = False):
         # num_tokens is useless
-        n, _, _, model = self._model
-        sos, eos = make_padding(n - 1)
+        n, model = self.num_gram, self._cond_prob
         self.__iv_counter = Counter() if count_oov else None
         self._oov_counter = Counter() if count_oov else None
 
         with open(test_file, 'r') as fr:
             for line in fr:
-                lot = sos + line.strip().split() + eos
-                for ng in n_gram(n, lot):
+                lot = line.strip().split()
+                for ng in n_gram(n, self.make_padding(lot)):
                     tok = ng[-1]
                     if ng in model:
                         if count_oov: self.__iv_counter[ng] += 1
@@ -183,48 +219,49 @@ class N_Gram:
 
 class N_Gram_Family:
     def __init__(self, max_n, family_name):
-        self._family = [N_Gram(i, family_name) for i in range(1, max_n + 1)]
-
-    def __getitem__(self, index):
-        return self._family[index]
-
-    def __len__(self):
-        return len(self._family)
+        self._range  = tuple(range(1, max_n + 1))
+        self._family = [N_Gram(i, family_name) for i in self._range]
 
     def __str__(self):
         return "----\n".join(str(s) for s in self._family)
 
-    def seal_model(self, train_file):
-        '''The condition probability of N-Gram model stand on (N-1)-Gram model.
-        Seal the models from 1-gram to n-gram'''
-        pre_count = None
+    def build(self, train_file):
         for model in self._family:
-            count = model.build_model(train_file)
-            model.seal_model(count, pre_count)
-            pre_count = count
+            model.build(train_file)
 
     def load(self):
         for model in self._family:
             model.load()
 
-    def entropy_of(self, test_file, weights, num_types_include_oov, base = None):
+    def seal(self):
+        '''The condition probability of N-Gram model stand on (N-1)-Gram model.
+        Seal the models from 1-gram to n-gram'''
+        pre_count = None
+        for model in self._family:
+            model.seal(pre_count)
+            pre_count = model.raw_count
+
+    def prepare(self, weights, zero_gram_prob):
         '''About weights:
             When weights is None, apply Witten-Bell smooth to each word;
             When weights is a list of fixed numbers for each model, apply them to each model.'''
-        assert weights is None or len( weights ) == len( self._family )
-        if weights:
-            assert all( 0 <= w <= 1 for w in weights)
-            weights = tuple( interpolate_gen(w) for w in weights )
+        if weights and len( weights ) == len( self._family ):
+            self._weights = tuple( interpolate_gen(w) for w in weights )
+        elif weights is None:
+            self._weights = (None,) * len(self._family)
         else:
-            weights    = (None,) * len(self._family)
-        family     = tuple( model.prob_of(test_file) for model in self._family )
-        _log       = (lambda p: log(p, base)) if base else log
+            raise ValueError("Invalid weights, thought I can perform the crossing version!")
+        self._zero_gram_prob = zero_gram_prob
+
+    def entropy_of(self, test_file):
+        family     = tuple( model.cond_prob_of(test_file) for model in self._family )
+        _log       = log_gen()
         num_token  = 0
         log_prob   = 0
         processing = True
         while processing: # for a token in each n-gram model
-            w_prob_by_last_model = 1 / num_types_include_oov # Zero-Gram
-            for model, model_gen, weight in zip(self._family, family, weights):
+            w_prob_by_last_model = self._zero_gram_prob
+            for model, model_gen, weight in zip(self._family, family, self._weights):
                 try:
                     w, w_prob = next(model_gen)
                 except StopIteration:
@@ -232,14 +269,18 @@ class N_Gram_Family:
                     break
                 if weight:
                     inter_prob = weight(w_prob, w_prob_by_last_model)
-                    log_prob  += _log(inter_prob)
                 elif model.num_gram > 1:
                     wb, cwb    = model.weight_of(w)
                     inter_prob = wb * w_prob + cwb * w_prob_by_last_model
-                    log_prob  += _log(inter_prob)
-                w_prob_by_last_model = w_prob
+                else: # mixture smooth Witten-Bell and others
+                    inter_prob = w_prob
+                log_prob  += _log(inter_prob)
+                w_prob_by_last_model = inter_prob
             num_token += 1
         return log_prob / num_token
+
+    def rank_split(self, tokens):
+        layers = tuple(n_gram(model.num_gram, model.make_padding(tokens)) for model in self._family)
 
 if __name__ == "__main__":
     bigram_count = {('Tottori', 'is'):2, ('Tottori', 'city'):1}
