@@ -1,33 +1,41 @@
 import os, sys
 sys.path.append(os.path.pardir)
 from common.n_gram import NGram
-from common.blenders import SimpleBlender, MultiLayerBlender, WittenBell
+from common.smoothings import SimpleSmoothing, MultiLayerSmoothing, WittenBell
+import pickle
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--path_to_cache_file')
-    parser.add_argument('-t', '--path_to_test_file')
-    parser.add_argument('-b', '--path_to_train_file', required=False)
+    parser.add_argument('-t', '--test-file')
+    parser.add_argument('-p', '--param-file')
+    parser.add_argument('-s', '--smoothing-file')
     arg = parser.parse_args()
 
     model = NGram()
-    model.load(arg.path_to_cache_file)
+    model.load_params(arg.param_file)
     model.print_params()
 
-    # blender = SimpleBlender()
-    # blender = MultiLayerBlender(unk_rates={
-    #     1: 0.05, 
-    #     2: 0.05
-    # })
-    blender = WittenBell(arg.path_to_train_file)
-    model.set_blender(blender)
+    smoothing = None
+    with open(arg.smoothing_file, 'rb') as f:
+        smoothing_name = pickle.load(f)[0]
+    if smoothing_name == 'simple':
+        smoothing = SimpleSmoothing()
+    elif smoothing_name == 'multilayer':
+        smoothing = MultiLayerSmoothing()
+    elif smoothing_name == 'witten-bell':
+        smoothing = WittenBell()
+    smoothing.load_params(arg.smoothing_file)
 
-    print(f'loaded model({model.n}-gram) from {arg.path_to_cache_file}')
-    print(f'test model with {arg.path_to_test_file}')
+    model.set_smoothing(smoothing)
 
-    entropy = model.entropy(arg.path_to_test_file)
+    print(f'loaded model({model.n}-gram) from {arg.param_file}')
+    print(f'test model with {arg.test_file}')
+
+    with open(arg.test_file, 'r') as f:
+        entropy = model.entropy(f)
+
     print(f'entropy = {entropy}')
 
 '''
