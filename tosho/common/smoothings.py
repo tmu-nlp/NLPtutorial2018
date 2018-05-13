@@ -1,7 +1,7 @@
 
 import os, sys
 sys.path.append(os.path.pardir)
-from common.utils import count_words
+from common.utils import iterate_tokens, count_tokens
 from collections import defaultdict
 
 class SimpleSmoothing:
@@ -31,25 +31,49 @@ class WittenBell:
     '''
     Witten Bell 平滑化
     '''
-    def __init__(self, train_filename):
-        # c(w)
-        self.word_c = count_words(train_filename, 1)
+    def __init__(self, t_data, n_gram=1):
+        self.unk_rates = {}
+        self.base_unk_rate = None
 
-        # u(w)
-        two_grams = count_words(train_filename, 2)
-        self.word_u = defaultdict(int)
-        for pair in two_grams.keys():
-            key = pair[0:1]
-            self.word_u[key] += 1
+        for n in range(n_gram):
+            self.__init_n(t_data, n)
+    
+    def __init_n(self, t_data, n):
+        if n == 0:
+            counts = count_tokens(iterate_tokens(t_data, 1))
+            c = sum(counts.values())
+            u = len(counts)
+            self.base_unk_rate = u / (c + u)
+        else:
+            # c(w)
+            word_c = count_tokens(iterate_tokens(t_data, n))
+
+            # u(w)
+            two_grams = count_tokens(iterate_tokens(t_data, n+1))
+            word_u = defaultdict(int)
+            for pair in two_grams.keys():
+                key = pair[0:-1]
+                word_u[key] += 1
+            
+            rates = defaultdict(lambda : 1.0)
+            for key in word_u.keys():
+                rates[key] = word_u[key] / (word_c[key] + word_u[key])
+
+            self.unk_rates[n] = rates
         
     def unk_rate(self, *words):
-        key = words[-1:]
-        
-        c = self.word_c[key]
-        u = self.word_u[key]
-
-        # 未知語の場合
-        if c == 0 and u == 0:
-            return 1
+        if len(words) == 0:
+            return self.base_unk_rate
         else:
-            return u / (c + u)
+            return self.unk_rates[len(words)][words]
+
+if __name__ == '__main__':
+    with open('../../test/02-train-input.txt', 'r') as f:
+        wb = WittenBell(list(f), 3)
+
+    for n, rate in wb.unk_rates.items():
+        for w, r in rate.items():
+            print(f'l{w} = {r}')
+    print(f'l(unk)={wb.base_unk_rate}')
+    for words in [('a'), ('a', 'b'), ('z')]:
+        print(f'l({words}) = {wb.unk_rate(*words)}')

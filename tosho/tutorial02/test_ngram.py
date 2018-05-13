@@ -15,18 +15,20 @@ if __name__ == '__main__':
     model.load_params(arg.param_file)
     model.print_params()
 
-    blender = SimpleSmoothing()
+    smoothing = SimpleSmoothing()
     # blender = MultiLayerSmoothing(unk_rates={
     #     1: 0.1, 
     #     2: 0.1
     # })
     # blender = WittenBell(arg.path_to_train_file)
-    model.set_blender(blender)
+    model.set_smoothing(smoothing)
 
     print(f'loaded model({model.n}-gram) from {arg.param_file}')
     print(f'test model with {arg.test_file}')
 
-    entropy = model.entropy(arg.test_file)
+    with open(arg.test_file, 'r') as f:
+        entropy = model.entropy(f)
+
     print(f'entropy = {entropy}')
 
 '''

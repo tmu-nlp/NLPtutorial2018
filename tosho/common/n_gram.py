@@ -1,6 +1,6 @@
 import os, sys
 sys.path.append(os.path.pardir)
-from common.utils import count_words, parse_file
+from common.utils import count_words, parse_file, count_tokens, iterate_tokens
 import math
 import pickle
 
@@ -12,7 +12,7 @@ class ZeroGram:
     def __init__(self):
         self.unk = None
     
-    def set_blender(self, blender):
+    def set_smoothing(self, smoothing):
         pass
 
     def train(self, vocab_size=10**6):
@@ -40,13 +40,22 @@ class NGram:
         self.n = n_gram                 # n-gram
         self.words = None               # 学習した条件付き確率
         self.n_minus_one_gram = None    # (n-1)-gram. 出現確率を計算するときに使用する
-        self.blender = None
+        self.smoothing = None           # 平滑化アルゴリズム（未知語率を算出する）
 
-    def set_blender(self, blender):
-        self.blender = blender
-        self.n_minus_one_gram.set_blender(blender)
+    def set_smoothing(self, smoothing):
+        self.smoothing = smoothing
+        self.n_minus_one_gram.set_smoothing(smoothing)
 
-    def train(self, train_file, vocab_size=10**6):
+    def train(self, t_data, vocab_size=10**6):
+        '''
+        t_data : sequence of string
+        '''
+        # 各n-gramの確率を計算する
+        self.words = count_tokens(iterate_tokens(t_data, self.n))
+        total_tokens = sum(self.words.values())
+        for key, count in self.words.items():
+            self.words[key] = count / total_tokens
+            
         # unigramの(n-1)-gramにはZeroGramクラスを使用する
         # これは estimate で 1/vocab_size を常に返すクラスである
         if self.n == 1:
@@ -54,13 +63,7 @@ class NGram:
             self.n_minus_one_gram.train(vocab_size=vocab_size)
         else:
             self.n_minus_one_gram = NGram(self.n - 1)
-            self.n_minus_one_gram.train(train_file, vocab_size=vocab_size)
-        
-        # 各n-gramの確率を計算する
-        self.words = count_words(train_file, self.n)
-        total_tokens = sum(self.words.values())
-        for key, count in self.words.items():
-            self.words[key] = count / total_tokens
+            self.n_minus_one_gram.train(t_data, vocab_size=vocab_size)
 
     def estimate(self, *words):
         '''
@@ -77,7 +80,7 @@ class NGram:
         p_n_1 = self.n_minus_one_gram.estimate(*sub_words)
 
         # 補完係数を求める
-        unk_rate = self.blender.unk_rate(*words)
+        unk_rate = self.smoothing.unk_rate(*words)
         
         # 未知語率を考慮して確率を計算する
         p = (1. - unk_rate) * p_n + unk_rate * p_n_1
@@ -85,17 +88,14 @@ class NGram:
 
         return p
 
-    def entropy(self, test_filename):
+    def entropy(self, t_data):
         entropy = 0.
         W = 0
 
-        with open(test_filename, 'r') as test_file:
-            doc = parse_file(test_file, self.n)
-            for seq in doc:
-                for pair in seq:
-                    p = self.estimate(*pair)
-                    entropy += math.log(p, 2)
-                    W += 1
+        for token in iterate_tokens(t_data, self.n):
+            p = self.estimate(*token)
+            entropy += math.log2(p)
+            W += 1
         
         return -1 * entropy / W
     
@@ -106,24 +106,24 @@ class NGram:
         params = self.get_params()
         with open(file_name, 'wb') as f:
             pickle.dump(params, f)
-    
-    def get_params(self):
-        params = self.n_minus_one_gram.get_params()
-
-        params[self.n] = self.words
-        return params
         
     def load_params(self, file_name='params.pkl'):
         with open(file_name, 'rb') as f:
             params = pickle.load(f)
         
         self.set_params(params)
+    
+    def get_params(self):
+        params = self.n_minus_one_gram.get_params()
+
+        params[self.n] = self.words
+        return params
 
     def set_params(self, params):
         self.n = max(params.keys())
         self.words = params.pop(self.n)
-        # params.remove(self.n)
 
+        # (n-1)-gram のパラメータを設定する
         if self.n == 1:
             self.n_minus_one_gram = ZeroGram()
         else:

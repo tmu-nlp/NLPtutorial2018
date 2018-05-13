@@ -1,7 +1,7 @@
 import os, sys
 sys.path.append(os.path.pardir)
-from common.utils import count_words
-from common.n_gram import ZeroGram, NGram
+from common.n_gram import NGram
+from os import path
 
 if __name__ == '__main__':
     import argparse
@@ -10,12 +10,14 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--train-file')
     parser.add_argument('-o', '--output-file')
     parser.add_argument('-n', '--n-gram', type=int, required=True)
+    parser.add_argument('-s', '--smoothing', choices=('simple', 'multilayer', 'witten-bell'))
     arg = parser.parse_args()
 
     print(f'train model with {arg.train_file}')
 
     model = NGram(arg.n_gram)
-    model.train(arg.train_file)
+    with open(arg.train_file, 'r') as f:
+        model.train(list(f))
 
     model.print_params()
 
