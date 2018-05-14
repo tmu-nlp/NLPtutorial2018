@@ -103,6 +103,9 @@ class NGram:
             W += 1
         
         return -1 * H / W
+
+    def split_sentence(self, sentence):
+        return sentence
     
     def save_params(self, file_name='params.pkl'):
         '''
