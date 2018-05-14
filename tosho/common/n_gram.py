@@ -19,7 +19,7 @@ class ZeroGram:
     def train(self, vocab_size=10**6):
         self.unk = 1 / vocab_size
     
-    def estimate(self, *words):
+    def prob(self, *words):
         return self.unk
 
     def get_params(self):
@@ -70,7 +70,7 @@ class NGram:
             self.n_minus_one_gram = NGram(self.n - 1)
             self.n_minus_one_gram.train(t_data, vocab_size=vocab_size)
 
-    def estimate(self, *words):
+    def prob(self, *words):
         '''
         Parameters
         =====
@@ -82,7 +82,7 @@ class NGram:
 
         # 補完に使用する確率を求める
         sub_words = words[1:]
-        p_n_1 = self.n_minus_one_gram.estimate(*sub_words)
+        p_n_1 = self.n_minus_one_gram.prob(*sub_words)
 
         # 補完係数を求める
         unk_rate = self.smoothing.unk_rate(*words)
@@ -98,7 +98,7 @@ class NGram:
         W = 0
 
         for token in iterate_tokens(t_data, self.n):
-            p = self.estimate(*token)
+            p = self.prob(*token)
             H += math.log2(p)
             W += 1
         
