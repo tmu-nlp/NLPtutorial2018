@@ -1,8 +1,8 @@
 import sys
 sys.path.append("..")
-from utils.n_gram import N_Gram, unigram_smooth_gen
+from utils.n_gram import N_Gram, unigram_smooth_gen, log_gen
 import argparse
-from math import log
+_log = log_gen(2)
 
 def arguments_parse():
     parser = argparse.ArgumentParser(
@@ -22,9 +22,10 @@ if __name__ == "__main__":
         model.build(args.source)
     elif args.mode == "test":
         model = N_Gram(1, args.source)
-        model.load().seal()
-        inp = unigram_smooth_gen(0.95, 1000000) # inp avoids log(0.0)
-        log_prob = sum(log(inp(p), 2) for _, p in model.prob_of(args.destine, count_oov = True))
+        model.load()
+        model.seal()
+        inp = unigram_smooth_gen(0.95, 1/1000000) # inp avoids log(0.0)
+        log_prob = sum(_log(inp(p)) for _, p in model.cond_prob_of(args.destine, count_oov = True))
 
         print("Test set '%s'" % args.destine)
         print("Log probability:", log_prob)
@@ -36,4 +37,5 @@ if __name__ == "__main__":
     else:
         model = N_Gram(1, args.source)
         model.load()
+        model.seal()
         print(model)

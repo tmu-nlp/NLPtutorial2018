@@ -1,6 +1,7 @@
 import sys
 sys.path.append("..")
 from utils.n_gram import N_Gram_Family
+from utils.solutions import grid_search, arg_range
 import argparse
 
 def arguments_parse():
@@ -24,9 +25,15 @@ if __name__ == "__main__":
         model = N_Gram_Family(args.ngram, args.source)
         model.load()
         model.seal()
-        model.prepare([0.95, 0.95], 1/1000000)
-        print("Test set '%s'" % args.destine)
-        print("Entropy:", model.entropy_of(args.destine)) # match the answer
+        # model.prepare([0.95, 0.95], 1/1000000)
+        # print("Test set '%s'" % args.destine)
+        # print("Entropy:", model.entropy_of(args.destine)) # match the answer
+        min_e, max_e = arg_range(grid_search(model, args.destine))
+        fmt = "uni(%f), bi(%f), entropy(%f)"
+        print(fmt % min_e)
+        print(fmt % max_e)
+        model.prepare(None, 1/1000000)
+        print("Entropy with Witten-Bell smooth:", model.entropy_of(args.destine))
     else:
         model = N_Gram_Family(args.ngram, args.source)
         model.load()
