@@ -3,6 +3,7 @@ sys.path.append(os.path.pardir)
 from common.utils import count_words, parse_file, count_tokens, iterate_tokens
 import math
 import pickle
+from collections import defaultdict
 
 class ZeroGram:
     '''
@@ -52,9 +53,13 @@ class NGram:
         '''
         # 各n-gramの確率を計算する
         self.words = count_tokens(iterate_tokens(t_data, self.n))
-        total_tokens = sum(self.words.values())
+        sub_totals = defaultdict(int)
         for key, count in self.words.items():
-            self.words[key] = count / total_tokens
+            sub_key = key[:-1]
+            sub_totals[sub_key] += count
+
+        for key, count in self.words.items():
+            self.words[key] = count / sub_totals[key[:-1]]
             
         # unigramの(n-1)-gramにはZeroGramクラスを使用する
         # これは estimate で 1/vocab_size を常に返すクラスである
@@ -89,15 +94,15 @@ class NGram:
         return p
 
     def entropy(self, t_data):
-        entropy = 0.
+        H = 0.
         W = 0
 
         for token in iterate_tokens(t_data, self.n):
             p = self.estimate(*token)
-            entropy += math.log2(p)
+            H += math.log2(p)
             W += 1
         
-        return -1 * entropy / W
+        return -1 * H / W
     
     def save_params(self, file_name='params.pkl'):
         '''
