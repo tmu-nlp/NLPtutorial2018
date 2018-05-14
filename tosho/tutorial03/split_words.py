@@ -25,3 +25,14 @@ if __name__ == '__main__':
                 line = line.strip()
                 splited = model.split_sentence(line)
                 o.write(' '.join(splited) + '\n')
+
+
+'''
+$ python split_words.py -t ../../data/wiki-ja-test.txt -m wiki-ja.pkl -o wiki-ja-answer.word
+$ ../../script/gradews.pl ../../data/wiki-ja-test.word wiki-ja-answer.word
+Sent Accuracy: 23.81% (20/84)
+Word Prec: 68.93% (1861/2700)
+Word Rec: 80.77% (1861/2304)
+F-meas: 74.38%
+Bound Accuracy: 83.25% (2683/3223)
+'''
