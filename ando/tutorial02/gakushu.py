@@ -4,7 +4,7 @@ total=0
 token=0
 #lastword=“”
 
-f = open("/Users/one/nlptutorial/data/wiki-en-test.word")
+f = open("/Users/one/nlptutorial/data/wiki-en-train.word")
 lines = f.readlines()
 for line in lines:
     line = line.rstrip()
