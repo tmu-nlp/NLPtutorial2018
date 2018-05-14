@@ -1,6 +1,6 @@
 import sys
 sys.path.append("..")
-from utils import N_Gram, unigram_smooth_gen
+from utils.n_gram import N_Gram, unigram_smooth_gen
 import argparse
 from math import log
 
@@ -19,18 +19,20 @@ if __name__ == "__main__":
     args = arguments_parse()
     if args.mode == "train":
         model = N_Gram(1, args.destine)
-        cnt = model.build_model(args.source)
-        model.seal_model(cnt)
+        model.build(args.source)
     elif args.mode == "test":
         model = N_Gram(1, args.source)
-        model.load()
-        inp = unigram_smooth_gen(0.95, 1000000)
-        log_prob = sum(log(inp(p), 2) for p in model.prob_of(args.destine, 2))
+        model.load().seal()
+        inp = unigram_smooth_gen(0.95, 1000000) # inp avoids log(0.0)
+        log_prob = sum(log(inp(p), 2) for _, p in model.prob_of(args.destine, count_oov = True))
 
-        print("Test set '%s'" % args.destine, "\nLog probability:", log_prob)
+        print("Test set '%s'" % args.destine)
+        print("Log probability:", log_prob)
         H = -log_prob / model.num_types # I still wonder why is not total_num_types!!
-        print("Entropy:", H) # match the answer
-        print("Perplexity: ", 2**H)
+        print("Entropy:        ", H) # match the answer
+        print("Perplexity:     ", 2**H)
+        coverage = (model.recent_coverage_by_token, model.recent_coverage_by_type)
+        print("Coverage: %.2f by token, %.2f by type" % coverage)
     else:
         model = N_Gram(1, args.source)
         model.load()
