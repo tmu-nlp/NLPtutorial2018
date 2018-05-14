@@ -17,7 +17,7 @@ with open(sys.argv[1],'r') as test_file:
 		line=line.strip()
 		words=line.split(' ')
 		words.append("</s>")
-		words.inser(0,"<s>")
+		words.insert(0,"<s>")
 		for i in range(1,len(words)):
 			P1=l1 * probs[words[i]] + (i-l1)/V
 			P2=l2 * probs[f'{words[i-1]}{words[i]}'] + (1-L2)*P1
