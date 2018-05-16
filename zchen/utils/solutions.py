@@ -1,13 +1,7 @@
-from .n_gram import N_Gram_Family, log_gen
-from collections import defaultdict
+import matplotlib.pyplot as plt
+from .n_gram import N_Gram_Family, nlog_gen
 import numpy as np
 from tqdm import tqdm
-try:
-    import matplotlib.pyplot as plt
-except RuntimeError:
-    import sys
-    sys.stderr.write("utils.solution module: Plot function with matplotlib will be unavailable.\n")
-_log = log_gen()
 
 
 def grid_search(model, testfile, delta = 100):
@@ -29,27 +23,102 @@ def arg_range(tuple_of_ndarray):
     return tuple(i[idx_Z_min] for i in c) + (Z[idx_Z_min],), tuple(i[idx_Z_max] for i in c) + (Z[idx_Z_max],)
 
 
-def viterbi(model, tokens, max_len):
-    def forward():
-        cache = {}
-        def possible_at(start):
-            for l in range(max_len):
-                end = start+l+1
-                tok = tokens[start:end]
-                if tok in model.raw_count:
-                    cache[tok] = -_log(model.prob_of(tok))
-                    yield start, end, tok
+class Trie:
+    """
+    Our trie node implementation. Very basic. but does the job
+    """
+    _eow  = 'vAlUe'
 
+    def __init__(self, model, interpolator):
+        _nlog = nlog_gen()
+        oov_term = interpolator(0)
+        self._non_key_value = _nlog(oov_term)
+        self._data = {}
+        self._cache = {}
+        self._recent = None
+        for ng, value in model.iterprob:
+            curr = self._data
+            word = ' '.join(ng)
+            for char in word:
+                if char not in curr:
+                    curr[char] = {}
+                    curr = curr[char]
+                else:
+                    curr = curr[char]
+            curr[Trie._eow] = _nlog(interpolator(value))
+
+    def possible(self, char: str, idx: int):# -> bool:
+        if self.recent is None or idx != self._recent[0]:
+            curr = self._data
+        else:
+            curr = self._recent[1]
+        if char not in curr:
+            self._recent = None
+            return False
+        curr = curr[char]
+        if self._recent:
+            self._recent[1] = curr
+            self._recent[2] += char
+        else:
+            self._recent = [idx, curr, char]
+        if Trie._eow in curr:
+            self._cache[self._recent[2]] = curr[Trie._eow]
+        return True
+
+    @property
+    def recent(self):
+        ret = self._recent
+        if ret and ret[2] in self._cache:
+            return ret[2]
+        return None
+
+    def __getitem__(self, word: str):
+        return self._cache[word]
+
+    def set_non_key_value(self, word: str):
+        if word not in self._cache:
+            self._cache[word] = self._non_key_value
+        elif self._cache[word] != self._non_key_value:
+            raise ValueError("Never happen in set_non_key_value")
+
+    @property
+    def data(self):
+        return self._data
+
+
+def viterbi(model: Trie, tokens: str):
+    def forward():
         length = len(tokens)
         strata = [{'solution':None, 'end':set(), 'min_loss':None, 'based_on':None} for i in range(length)]
-        for pos in range(length):
-            for start, end, tok in possible_at(pos):
-                strata[end]['end'].add(tok)
-            path_loss_gen = (tok, cache[tok]+strata[pos-len(tok)]['min_loss'] for tok in strata[pos]['end'])
-            tok, min_loss = min(path_loss_gen, key x:x[1])
-            strata[pos]['solution'] = tok
-            strata[pos]['based_on'] = pos - len(tok)
-            strata[pos]['min_loss'] = min_loss
+        pending_start = None
+        for start in range(length - 1): # the last one will be left behind
+            # find edge from start to all already ends (end + 1)
+            for end in range(start + 1, length):
+                char = tokens[end - 1]
+                if model.possible(char, start):
+                    word = model.recent
+                    if word:
+                        strata[end]['end'].add(word)
+                    if pending_start:
+                        unk = tokens[pending_start:end - 1]
+                        model.set_non_key_value(unk)
+                        strata[end - 1]['end'].add(unk)
+                        pending_start = None
+                else:
+                    if pending_start is None:
+                        pending_start = start
+                    break
+            for s in strata:
+                print(s, start)
+            stratum = strata[start]
+            if start == 0:
+                stratum['min_loss'] = 0
+            elif stratum['end']:
+                path_loss_gen = ((tok, model[tok]+strata[start - len(tok)]['min_loss']) for tok in stratum['end'])
+                tok, min_loss = min(path_loss_gen, key = lambda x:x[1])
+                stratum['solution'] = tok
+                stratum['based_on'] = start - len(tok)
+                stratum['min_loss'] = min_loss
         return strata
 
     def backward(strata):
@@ -58,7 +127,7 @@ def viterbi(model, tokens, max_len):
         while based_on:
             solution.append(strata[based_on]['solution'])
             based_on = strata[based_on]['based_on']
-            return solution[::-1]
+            return solution.reverse()
     return backward(forward())
 
 
@@ -67,4 +136,5 @@ def plot_2d_contour(x_y_entropy):
     plt.figure()
     CS = plt.contour(X, Y, Z)
     plt.clabel(CS, inline=1, fontsize=10)
-    plt.title('Simplest default with labels')
+    plt.title('Grid Search')
+    plt.show()

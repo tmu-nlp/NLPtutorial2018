@@ -10,12 +10,6 @@ answer = '''1-gram model based on 8 tokens in 5 types.
 	a     0.250000
 	b     0.250000
 	</s>  0.250000
-- Conditional probability:
-	c     0.125000
-	d     0.125000
-	a     0.250000
-	b     0.250000
-	</s>  0.250000
 ----
 2-gram model based on 8 tokens in 6 types.
 - Conditional probability:
@@ -67,14 +61,14 @@ class TestNGramMethods(unittest.TestCase):
         model.load()
         model.seal()
         model.prepare([0.95, 0.95], 1/1000000)
-        self.assertEqual(model.entropy_of("../../test/02-train-input.txt"), 2.023624945250144)
+        self.assertEqual(model.entropy_of("../../test/02-train-input.txt"), 1.727831692712927)#2.023624945250144)
 
     def test_entropy_witten_bell(self):
         model = N_Gram_Family(2, "dummy")
         model.load()
         model.seal()
         model.prepare(None, 1/1000000)
-        self.assertEqual(model.entropy_of("../../test/02-train-input.txt"), 2.5141107645051854)
+        self.assertEqual(model.entropy_of("../../test/02-train-input.txt"), 2.0564995103124692)#2.5141107645051854)
 
     def test_train_3(self):
         model = N_Gram_Family(3, "dummy")

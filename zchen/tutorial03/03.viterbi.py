@@ -1,15 +1,15 @@
 import sys
 sys.path.append("..")
-from utils.n_gram import N_Gram_Family
-from utils.solutions import grid_search, arg_range, plot_2d_contour
+from utils.n_gram import N_Gram, nlog_gen, unigram_smooth_gen
+from utils.solutions import viterbi, Trie
 import argparse
+
 
 def arguments_parse():
     parser = argparse.ArgumentParser(
         description='Mode(train, test, None), file(src, dst)',
         add_help=True,
     )
-    parser.add_argument('-n', '--ngram', type=int, default=2)
     parser.add_argument('-m', '--mode', help='None mode is for view model with -s', type=str, choices=["train", "test"])
     parser.add_argument('-s', '--source', help='text for training or model for viewing', type=str)
     parser.add_argument('-d', '--destine', help='model.n to store or test text', type=str)
@@ -19,25 +19,22 @@ def arguments_parse():
 if __name__ == "__main__":
     args = arguments_parse()
     if args.mode == "train":
-        model = N_Gram_Family(args.ngram, args.destine)
+        model = N_Gram(1, args.destine)
         model.build(args.source)
     elif args.mode == "test": # use family instead
-        model = N_Gram_Family(args.ngram, args.source)
+        model = N_Gram(1, args.source)
         model.load()
         model.seal()
-        # model.prepare([0.95, 0.95], 1/1000000)
-        # print("Test set '%s'" % args.destine)
-        # print("Entropy:", model.entropy_of(args.destine)) # match the answer
-        x_y_entropy = grid_search(model, args.destine)
-        plot_2d_contour(x_y_entropy)
-        min_e, max_e = arg_range(x_y_entropy)
-        fmt = "uni(%f), bi(%f), entropy(%f)"
-        print(fmt % min_e)
-        print(fmt % max_e)
-        model.prepare(None, 1/1000000)
-        print("Entropy with Witten-Bell smooth:", model.entropy_of(args.destine))
+        prob_proc = unigram_smooth_gen(0.95, 1/1000000)
+        trie = Trie(model, prob_proc)
+        with open(args.destine) as fr:
+            for ans in fr:
+                dsp = ans.strip()
+                ans = dsp.split(' ')
+                que = ''.join(ans)
+                print("Origin: %s\n split: %d\n", dsp, viterbi(trie, que)) # match the answer
     else:
-        model = N_Gram_Family(args.ngram, args.source)
+        model = N_Gram(1, args.source)
         model.load()
         model.seal()
         print(model)

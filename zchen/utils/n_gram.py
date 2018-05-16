@@ -7,14 +7,14 @@ _log_base = None
 _second_change_log_base = False
 
 
-def log_gen(new_base = None):
+def nlog_gen(new_base = None):
     global _log_base, _second_change_log_base
     if _second_change_log_base:
         raise Warning("Please pay attention to consistency!")
     if new_base and new_base != _log_base:
         _log_base = new_base
         _second_change_log_base = True
-    return (lambda p: log(p, _log_base)) if _log_base else log
+    return (lambda p: -log(p, _log_base)) if _log_base else (lambda x:-log(x))
 
 
 def n_gram(n, s):
@@ -169,12 +169,27 @@ class N_Gram:
         sos, eos = self._paddings
         return sos + lot + eos
 
+    def __getattr__(self, attr_name):
+        if attr_name.startswith('iter'):
+            attr_name = attr_name[4:]
+            if attr_name == 'count':
+                data = self._model[1]
+            elif attr_name == 'witten_bell':
+                data = self._model[-1]
+            elif attr_name == 'prob':
+                data = self._prob
+            elif attr_name == '_cond_prob':
+                data = self._cond_prob
+        else:
+            raise AttributeError("'NGram' object has no attribute '%s'" % attr_name)
+        return data.items()
+
     def __str__(self):
         s = "%d-gram model based on %d tokens in %s types.\n"
         s = s % (self.num_gram, self.num_tokens, self.num_types)
         if self._prob:
             s += "- Joint probability:\n" + _str(self._prob, key_is_tuple = True)
-        if self._cond_prob:
+        if self._cond_prob and self._n_gram > 1:
             s += "- Conditional probability:\n" + _str(self._cond_prob, key_is_tuple = True)
         if self.num_gram > 1:
             s += "- Witten Bell weights:\n" + _str(self._model[1], key_is_tuple = False)
@@ -183,6 +198,8 @@ class N_Gram:
     def prob_of(self, ng):
         if self._prob is None:
             self._prob = cond_prob(self.raw_count)
+        if self._n_gram == 1 and isinstance(ng, tuple):
+            return self._prob[ng[0]]
         return self._prob[ng]
 
     def cond_prob_of(self, test_file, count_oov = False):
@@ -258,7 +275,7 @@ class N_Gram_Family:
 
     def entropy_of(self, test_file):
         family     = tuple( model.cond_prob_of(test_file) for model in self._family )
-        _log       = log_gen()
+        _nlog      = nlog_gen()
         num_token  = 0
         log_prob   = 0
         processing = True
@@ -278,7 +295,7 @@ class N_Gram_Family:
                 else: # mixture smooth Witten-Bell and others
                     inter_prob = w_prob
                 w_prob_by_last_model += inter_prob
-            log_prob  -= _log(w_prob_by_last_model)
+            log_prob  += _nlog(w_prob_by_last_model)
             num_token += 1
         return log_prob / num_token
 
