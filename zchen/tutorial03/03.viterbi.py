@@ -25,14 +25,14 @@ if __name__ == "__main__":
         model = N_Gram(1, args.source)
         model.load()
         model.seal()
-        prob_proc = unigram_smooth_gen(0.95, 1/1000000)
-        trie = Trie(model, prob_proc)
+        prob_proc = unigram_smooth_gen(0.95, 1/100000000000)
+        trie = Trie(model, prob_proc, nlog_gen())
         with open(args.destine) as fr:
             for ans in fr:
                 dsp = ans.strip()
                 ans = dsp.split(' ')
                 que = ''.join(ans)
-                print("Origin: %s\n split: %d\n", dsp, viterbi(trie, que)) # match the answer
+                print("Origin: %s\n split: %s\n" % ('|'.join(ans), '|'.join(viterbi(trie, que, verbose = True)))) # match the answer
     else:
         model = N_Gram(1, args.source)
         model.load()

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
-from .n_gram import N_Gram_Family, nlog_gen
 import numpy as np
 from tqdm import tqdm
+from collections import defaultdict
 
 
 def grid_search(model, testfile, delta = 100):
@@ -23,19 +23,30 @@ def arg_range(tuple_of_ndarray):
     return tuple(i[idx_Z_min] for i in c) + (Z[idx_Z_min],), tuple(i[idx_Z_max] for i in c) + (Z[idx_Z_max],)
 
 
+def any_ranges(ordered):
+    length = len(ordered)
+    if length < 2:
+        raise StopIteration("not a good range")
+    for i in range(length-1):
+        for j in range(i+1, length):
+            yield ordered[i], ordered[j]
+
+
 class Trie:
     """
     Our trie node implementation. Very basic. but does the job
     """
     _eow  = 'vAlUe'
 
-    def __init__(self, model, interpolator):
-        _nlog = nlog_gen()
-        oov_term = interpolator(0)
-        self._non_key_value = _nlog(oov_term)
+    @classmethod
+    def eow(cls):
+        return cls._eow
+
+    def __init__(self, model, interpolator, trans_prob = lambda x:x):
+        unk_term = interpolator(0)
+        self._unk_value = trans_prob(unk_term)
         self._data = {}
         self._cache = {}
-        self._recent = None
         for ng, value in model.iterprob:
             curr = self._data
             word = ' '.join(ng)
@@ -45,89 +56,111 @@ class Trie:
                     curr = curr[char]
                 else:
                     curr = curr[char]
-            curr[Trie._eow] = _nlog(interpolator(value))
+            curr[Trie._eow] = trans_prob(interpolator(value))
 
-    def possible(self, char: str, idx: int):# -> bool:
-        if self.recent is None or idx != self._recent[0]:
-            curr = self._data
-        else:
-            curr = self._recent[1]
-        if char not in curr:
-            self._recent = None
-            return False
-        curr = curr[char]
-        if self._recent:
-            self._recent[1] = curr
-            self._recent[2] += char
-        else:
-            self._recent = [idx, curr, char]
-        if Trie._eow in curr:
-            self._cache[self._recent[2]] = curr[Trie._eow]
-        return True
-
-    @property
-    def recent(self):
-        ret = self._recent
-        if ret and ret[2] in self._cache:
-            return ret[2]
-        return None
+    def search_through(self, word: str):# -> bool:
+        curr = self._data
+        for i, char in enumerate(word):
+            if char in curr:
+                curr = curr[char]
+                if Trie._eow in curr:
+                    subw = word[:i+1]
+                    self._cache[subw] = curr[Trie._eow]
+                    yield subw
 
     def __getitem__(self, word: str):
         return self._cache[word]
 
-    def set_non_key_value(self, word: str):
-        if word not in self._cache:
-            self._cache[word] = self._non_key_value
-        elif self._cache[word] != self._non_key_value:
-            raise ValueError("Never happen in set_non_key_value")
+    def set_unk(self, word: str):
+        #print("DBGjl", word, self._cache, word in self._cache , self._cache[word] != self._unk_value)
+        if word in self._cache and self._cache[word] != self._unk_value or word == '':
+            raise ValueError("Never happen in set_unk for '%s'" % word)
+        # print("set unk", word)
+        self._cache[word] = self._unk_value
+
+    @property
+    def unk_value(self):
+        return self._unk_value
 
     @property
     def data(self):
         return self._data
 
 
-def viterbi(model: Trie, tokens: str):
+def viterbi(model: Trie, tokens: str, verbose = False):
     def forward():
-        length = len(tokens)
-        strata = [{'solution':None, 'end':set(), 'min_loss':None, 'based_on':None} for i in range(length)]
-        pending_start = None
-        for start in range(length - 1): # the last one will be left behind
-            # find edge from start to all already ends (end + 1)
-            for end in range(start + 1, length):
-                char = tokens[end - 1]
-                if model.possible(char, start):
-                    word = model.recent
-                    if word:
-                        strata[end]['end'].add(word)
-                    if pending_start:
-                        unk = tokens[pending_start:end - 1]
-                        model.set_non_key_value(unk)
-                        strata[end - 1]['end'].add(unk)
-                        pending_start = None
-                else:
-                    if pending_start is None:
-                        pending_start = start
-                    break
-            for s in strata:
-                print(s, start)
-            stratum = strata[start]
-            if start == 0:
-                stratum['min_loss'] = 0
-            elif stratum['end']:
+        def step_back_from(stratum):
+            if stratum['end']:
                 path_loss_gen = ((tok, model[tok]+strata[start - len(tok)]['min_loss']) for tok in stratum['end'])
                 tok, min_loss = min(path_loss_gen, key = lambda x:x[1])
                 stratum['solution'] = tok
                 stratum['based_on'] = start - len(tok)
                 stratum['min_loss'] = min_loss
+        length = len(tokens)
+        strata = [defaultdict(set) for i in range(length + 1)]
+        strata[0]['min_loss'] = 0
+        coverage = []
+        unk_start = length
+        for start in range(length): # the last one will be left behind
+            # find edge from start to all already ends
+            fractions = []
+            word_gen = model.search_through(tokens[start:])
+            for i, word in enumerate(word_gen):
+                end = start + len(word)
+                strata[end]['end'].add(word)
+                fractions.append(end)
+                # print(length, start, strata[start],fractions)
+                # if word == 'は':
+                #     print(start, word, 'in dict')
+
+            # guarantee for continuity
+            if not fractions or fractions[0] - start > 1:
+                char = tokens[start]
+                strata[start+1]['end'].add(char)
+                # print(start, char, fractions, char)
+                model.set_unk(char)
+                if verbose and fractions and unk_start == length: # to link continuous unks
+                    unk_start = start
+                # continue # is bad for continuity
+
+            # face fractions
+            elif verbose and fractions:
+                # of one prefix
+                if unk_start < start - 1 < length: # link continuous unks
+                    frac_word = tokens[unk_start:start-1]
+                    strata[end]['end'].add(frac_word)
+                    model.set_unk(frac_word)
+                    unk_start = length
+
+                # and many suffixes
+                for i,j in any_ranges(fractions):
+                    frac_word = tokens[i:j]
+                    strata[j]['end'].add(frac_word)
+                    print("frac:", frac_word)
+                    try:
+                        next(model.search_through(frac_word))
+                    except StopIteration:
+                        model.set_unk(frac_word)
+                for s in strata:
+                    print(s)
+                print('\n\n')
+
+            # bode for step with in 0:start
+            step_back_from(strata[start])
+        start += 1
+        step_back_from(strata[length])
         return strata
 
     def backward(strata):
         based_on = -1
         solution = []
         while based_on:
+            # print("back", strata[based_on]['solution'], 'to', based_on)
             solution.append(strata[based_on]['solution'])
             based_on = strata[based_on]['based_on']
-            return solution.reverse()
+        solution.reverse()
+        return solution
+
     return backward(forward())
 
 
