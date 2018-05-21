@@ -19,7 +19,7 @@ class ZeroGram:
     def train(self, vocab_size=10**6):
         self.unk = 1 / vocab_size
     
-    def estimate(self, *words):
+    def prob(self, *words):
         return self.unk
 
     def get_params(self):
@@ -70,7 +70,10 @@ class NGram:
             self.n_minus_one_gram = NGram(self.n - 1)
             self.n_minus_one_gram.train(t_data, vocab_size=vocab_size)
 
-    def estimate(self, *words):
+    def has(self, *words):
+        return words in self.words.keys()
+
+    def prob(self, *words):
         '''
         Parameters
         =====
@@ -82,7 +85,7 @@ class NGram:
 
         # 補完に使用する確率を求める
         sub_words = words[1:]
-        p_n_1 = self.n_minus_one_gram.estimate(*sub_words)
+        p_n_1 = self.n_minus_one_gram.prob(*sub_words)
 
         # 補完係数を求める
         unk_rate = self.smoothing.unk_rate(*words)
@@ -98,11 +101,51 @@ class NGram:
         W = 0
 
         for token in iterate_tokens(t_data, self.n):
-            p = self.estimate(*token)
+            p = self.prob(*token)
             H += math.log2(p)
             W += 1
         
         return -1 * H / W
+
+    def split_sentence(self, sentence):
+        best_scores, best_edges = self.__viterbi_forward(sentence)
+        words = self.__viterbi_backward(sentence, best_scores, best_edges)
+        return words
+
+    def __viterbi_forward(self, sentence):
+        best_scores = [0.0]
+        best_edges = [None]
+
+        for word_end in range(1, len(sentence) + 1):
+            best_score = 10**10
+            best_edge = None
+            for word_begin in range(0, word_end):
+                canditee = sentence[word_begin:word_end]
+                # 既知語か長さ１の未知語の場合
+                if self.has(canditee) or len(canditee) == 1:
+                    p = self.prob(canditee)
+                    this_score = best_scores[word_begin] - math.log2(p)
+                    if this_score < best_score:
+                        best_score = this_score
+                        best_edge = (word_begin, word_end)
+            
+            best_scores.append(best_score)
+            best_edges.append(best_edge)
+
+        return best_scores, best_edges
+    
+    def __viterbi_backward(self, sentence, best_scores, best_edges):
+        words = []
+        next_edge = best_edges[len(best_edges) - 1]
+
+        while next_edge != None:
+            word = sentence[next_edge[0]:next_edge[1]]
+            words.append(word)
+            next_edge = best_edges[next_edge[0]]
+
+        words.reverse()
+
+        return words
     
     def save_params(self, file_name='params.pkl'):
         '''
