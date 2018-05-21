@@ -32,7 +32,6 @@ def test_bigram(test_file, trained='trained_bigram', lambda1=0.3, lambda2=0.3):
     # 評価と結果表示
     for line in open(test_file, encoding='utf-8'):
         words = line.split()
-        words.append('</s>')
         W += len(words)
         for pear in get_ngram(['<s>', *words, '</s>'], 2):
             p1 = lambda1 * probs[' '.join(pear[-1])] + (1 - lambda1) / V
@@ -54,4 +53,4 @@ if __name__ == '__main__':
 # 実行結果
 
 # python test_bigram.py ..\..\data\wiki-en-test.word
-# entropy = 14.248907725927946
+# entropy = 13.997380434819425

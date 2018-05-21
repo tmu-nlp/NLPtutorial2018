@@ -38,7 +38,8 @@ def train_unigram(input_file, out_file='trained.csv'):
     sorted_counts = sorted(counts.items())
     with open(out_file, 'w', encoding='utf-8') as f:
         for key, value in sorted_counts:
-            f.write(f'{key}{separator}{value/word_sum:f}\n')
+            p = value/word_sum
+            f.write(f'{key}{separator}{p}\n')
     print(f'<{out_file}>に学習データを書き込みました')
 
 

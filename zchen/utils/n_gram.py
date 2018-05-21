@@ -7,14 +7,14 @@ _log_base = None
 _second_change_log_base = False
 
 
-def log_gen(new_base = None):
+def nlog_gen(new_base = None):
     global _log_base, _second_change_log_base
     if _second_change_log_base:
         raise Warning("Please pay attention to consistency!")
     if new_base and new_base != _log_base:
         _log_base = new_base
         _second_change_log_base = True
-    return (lambda p: log(p, _log_base)) if _log_base else log
+    return (lambda p: -log(p, _log_base)) if _log_base else (lambda x:-log(x))
 
 
 def n_gram(n, s):
@@ -70,9 +70,9 @@ def witten_bell_weights(ngram_count):
     return {w:t[0]/(t[0]+len(t[1])) for w, t in type_variation_count.items()}
 
 
-def unigram_smooth_gen(mod_prob, total_num_types):
+def unigram_smooth_gen(mod_prob, zero_gram_prob):
     '''Special funtion for unigram.'''
-    return lambda p: interpolate_gen(mod_prob)(p, 1 / total_num_types)
+    return lambda p: interpolate_gen(mod_prob)(p, zero_gram_prob)
 
 
 def interpolate_gen(main_prob):
@@ -96,6 +96,22 @@ def _check_oov_call(oov_func):
             raise ValueError(msg)
         return oov_func(*args)
     return wrapper
+
+
+    for k,w in weights.items():
+        s += "\tw%-15s" % ("'" + k + "'") + '%f\n' % w
+    return s
+
+
+def _str(kv_dict, key_is_tuple):
+    s = ''
+    ml = max(sum(len(ngi)+2 for ngi in ng)
+                if key_is_tuple else
+             len(ng)+2 for ng in kv_dict.keys())
+    lop = "\t%-{}s%f\n".format(ml)
+    for k, v in sorted(kv_dict.items(), key = lambda x:x[1]):
+        s += lop % (", ".join(k) if key_is_tuple else k, v)
+    return s
 
 
 class N_Gram:
@@ -150,36 +166,40 @@ class N_Gram:
         return sum(self.raw_count.values())
 
     def make_padding(self, lot):
-        sos, eos = self.paddings
-        return sos + log + eos
+        sos, eos = self._paddings
+        return sos + lot + eos
+
+    def __getattr__(self, attr_name):
+        if attr_name.startswith('iter'):
+            attr_name = attr_name[4:]
+            if attr_name == 'count':
+                data = self._model[1]
+            elif attr_name == 'witten_bell':
+                data = self._model[-1]
+            elif attr_name == 'prob':
+                data = self._prob
+            elif attr_name == '_cond_prob':
+                data = self._cond_prob
+        else:
+            raise AttributeError("'NGram' object has no attribute '%s'" % attr_name)
+        return data.items()
 
     def __str__(self):
-        s = "%d-gram model based on %d tokens in %s types"
-        s += " with Witten-Bell weights\n" if self.num_gram > 1 else '\n'
+        s = "%d-gram model based on %d tokens in %s types.\n"
         s = s % (self.num_gram, self.num_tokens, self.num_types)
-        s += self.cond_prob_str()
+        if self._prob:
+            s += "- Joint probability:\n" + _str(self._prob, key_is_tuple = True)
+        if self._cond_prob and self._n_gram > 1:
+            s += "- Conditional probability:\n" + _str(self._cond_prob, key_is_tuple = True)
         if self.num_gram > 1:
-            s += "\t- Witten Bell weights:\n" + self.witten_bell_str()
-        return s
-
-    def witten_bell_str(self):
-        s = ""
-        for k,w in self._model[1].items():
-            s += "\tw%-15s" % ("'" + k + "'") + '%f\n' % w
-        return s
-
-    def cond_prob_str(self):
-        model = self._cond_prob
-        ml = max(sum(len(ngi)+2 for ngi in ng) for ng in model.keys())
-        lop = "%-{}s%f\n".format(ml)
-        s = ''
-        for k, v in sorted(model.items(), key = lambda x:x[1]):
-            s += lop % (", ".join(k), v)
+            s += "- Witten Bell weights:\n" + _str(self._model[1], key_is_tuple = False)
         return s
 
     def prob_of(self, ng):
         if self._prob is None:
             self._prob = cond_prob(self.raw_count)
+        if self._n_gram == 1 and isinstance(ng, tuple):
+            return self._prob[ng[0]]
         return self._prob[ng]
 
     def cond_prob_of(self, test_file, count_oov = False):
@@ -255,7 +275,7 @@ class N_Gram_Family:
 
     def entropy_of(self, test_file):
         family     = tuple( model.cond_prob_of(test_file) for model in self._family )
-        _log       = log_gen()
+        _nlog      = nlog_gen()
         num_token  = 0
         log_prob   = 0
         processing = True
@@ -274,13 +294,11 @@ class N_Gram_Family:
                     inter_prob = wb * w_prob + cwb * w_prob_by_last_model
                 else: # mixture smooth Witten-Bell and others
                     inter_prob = w_prob
-                log_prob  += _log(inter_prob)
-                w_prob_by_last_model = inter_prob
+                w_prob_by_last_model += inter_prob
+            log_prob  += _nlog(w_prob_by_last_model)
             num_token += 1
         return log_prob / num_token
 
-    def rank_split(self, tokens):
-        layers = tuple(n_gram(model.num_gram, model.make_padding(tokens)) for model in self._family)
 
 if __name__ == "__main__":
     bigram_count = {('Tottori', 'is'):2, ('Tottori', 'city'):1}
