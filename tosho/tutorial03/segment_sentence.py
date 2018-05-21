@@ -22,10 +22,9 @@ if __name__ == '__main__':
     with open(arg.test_file, 'r') as f:
         with open(arg.output_file, 'w') as o:
             for line in f:
-                line = line.strip()
+                line = line.strip('\n')
                 splited = model.segment(line)
                 o.write(' '.join(splited) + '\n')
-
 
 '''
 $ python segment_sentence.py -t ../../data/wiki-ja-test.txt -m wiki-ja.pkl -o wiki-ja-answer.word

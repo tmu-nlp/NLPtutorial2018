@@ -122,7 +122,6 @@ class NGram:
             for word_begin in range(0, word_end):
                 canditee = sentence[word_begin:word_end]
                 # 既知語か長さ１の未知語の場合
-                # if self.has(canditee) or len(canditee) == 1:
                 if self.has(canditee) or len(canditee) <= unk_len:
                     p = self.prob(canditee)
                     this_score = best_scores[word_begin] - math.log2(p)
