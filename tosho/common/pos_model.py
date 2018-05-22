@@ -2,6 +2,7 @@ import os, sys
 sys.path.append(os.path.pardir)
 
 from collections import defaultdict
+import pickle
 
 def load_data(filename):
     '''
@@ -27,6 +28,9 @@ def load_data(filename):
                 this_data.append((word, pos))
             data.append(this_data)
         return data
+
+def defaultdict_int():
+    return defaultdict(int)
             
 def iterate_n_gram(seq, n=2):
     for gram in zip(*[seq[i:] for i in range(n)]):
@@ -46,7 +50,7 @@ class PosModel:
         self.unk_rate = 1 / vocab_size
     
     def __train_Pt(self, data):
-        pt = defaultdict(self.__create_defaultdict)
+        pt = defaultdict(defaultdict_int)
         
         for line in data:
             poses = list(map(lambda p: p[1], line))
@@ -62,7 +66,7 @@ class PosModel:
         return pt
 
     def __train_Pe(self, data):
-        pe = defaultdict(self.__create_defaultdict)
+        pe = defaultdict(defaultdict_int)
         
         for line in data:
             for pair in line:
@@ -84,6 +88,14 @@ class PosModel:
         defaualtdit 初期化のための関数
         '''
         return defaultdict(int)
+    
+    def save_params(self, filename):
+        with open(filename, 'wb') as f:
+            pickle.dump((self.Pt, self.Pe, self.lam, self.unk_rate), f)
+    
+    def load_params(self, filename):
+        with open(filename, 'rb') as f:
+            self.Pt, self.Pe, self.lam, self.unk_rate = pickle.load(f)
 
 if __name__ == '__main__':
     data = load_data('../../test/05-train-input.txt')

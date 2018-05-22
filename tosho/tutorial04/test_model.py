@@ -6,15 +6,12 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--train-file', required=True)
+    parser.add_argument('-t', '--test-file', required=True)
     parser.add_argument('-m', '--model-file', required=True)
     arg = parser.parse_args()
 
-    data = load_data(arg.train_file)
-
     model = PosModel()
-    model.train(data)
+    model.load_params(arg.model_file)
 
-    model.save_params(arg.model_file)
-
-    print(f'model file saved to {arg.model_file}')
+    print(model.Pt)
+    print(model.Pe)
