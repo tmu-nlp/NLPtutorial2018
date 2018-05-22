@@ -1,4 +1,2 @@
-.vscode/
-*.pkl
-*.txt
-*.word
+!*.py
+*.*
