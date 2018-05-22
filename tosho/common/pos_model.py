@@ -4,18 +4,14 @@ sys.path.append(os.path.pardir)
 from collections import defaultdict
 import pickle
 
-def load_data(filename):
+def load_data(filename, mode='train'):
     '''
+    return
+    =====
+
     [
-        # line 1
-        [
-            (word, pos),
-            ...
-        ],
-        # line 2
-        [
-            ...
-        ],
+        [(word, pos),...],  # line 1
+        [...],              # line 2
         ...
     ]
     '''
@@ -24,8 +20,12 @@ def load_data(filename):
         for line in f:
             this_data = []
             for pair in line.strip('\n').split(' '):
-                word, pos = pair.split('_')
-                this_data.append((word, pos))
+                if mode == 'train':
+                    word, pos = pair.split('_')
+                    this_data.append((word, pos))
+                elif mode == 'test':
+                    word = pair.split('_')[0]
+                    this_data.append(word)
             data.append(this_data)
         return data
 
@@ -44,6 +44,16 @@ class PosModel:
         self.unk_rate = None
 
     def train(self, data, vocab_size=10**6, lam=0.95):
+        '''
+        parameter[data]
+        =====
+        [
+            [(word, pos),...],  # line 1
+            [...],              # line 2
+            ...
+        ]
+        '''
+
         self.Pt = self.__train_Pt(data)
         self.Pe = self.__train_Pe(data)
         self.lam = lam
@@ -83,12 +93,6 @@ class PosModel:
         
         return pe
     
-    def __create_defaultdict(self):
-        '''
-        defaualtdit 初期化のための関数
-        '''
-        return defaultdict(int)
-    
     def save_params(self, filename):
         with open(filename, 'wb') as f:
             pickle.dump((self.Pt, self.Pe, self.lam, self.unk_rate), f)
@@ -97,17 +101,49 @@ class PosModel:
         with open(filename, 'rb') as f:
             self.Pt, self.Pe, self.lam, self.unk_rate = pickle.load(f)
 
+    def predict_pos(self, data):
+        '''
+        parameter[data]
+        =====
+        [
+            [word, ...],    # line 1
+            [...],          # line 2
+            ...
+        ]
+
+        return
+        =====
+        [
+            [pos, ...],     # line 1
+            [...],          # line 2
+            ...
+        ]
+        '''
+        estimate = []
+        for line in data:
+            estimate.append(self.__predict_pos_line(line))
+        return estimate
+    
+    def __predict_pos_line(self, line):
+        for word in line:
+            yield word
+
 if __name__ == '__main__':
     data = load_data('../../test/05-train-input.txt')
     print(data[:min(len(data), 10)])
 
 '''
-sample(test)
+sample(test_train)
 =====
 a_X b_Y a_Z
 a_X c_X b_Y
 
-sample(data)
+sample(test_data)
+=====
+a b a
+a c b
+
+sample(train_data)
 =====
 Natural_JJ language_NN processing_NN -LRB-_-LRB- NLP_NN -RRB-_-RRB- is_VBZ a_DT field_NN of_IN computer_NN science_NN ,_, artificial_JJ intelligence_NN -LRB-_-LRB- also_RB called_VBN machine_NN learning_NN -RRB-_-RRB- ,_, and_CC linguistics_NNS concerned_VBN with_IN the_DT interactions_NNS between_IN computers_NNS and_CC human_JJ -LRB-_-LRB- natural_JJ -RRB-_-RRB- languages_NNS ._.
 '''

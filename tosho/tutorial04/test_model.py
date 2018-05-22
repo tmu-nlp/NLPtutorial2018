@@ -13,5 +13,9 @@ if __name__ == '__main__':
     model = PosModel()
     model.load_params(arg.model_file)
 
-    print(model.Pt)
-    print(model.Pe)
+    t_data =load_data(arg.test_file, mode='test')
+
+    estimate = model.predict_pos(t_data)
+
+    for line in estimate:
+        print(' '.join(line))
