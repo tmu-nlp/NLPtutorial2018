@@ -124,11 +124,9 @@ class PosModel:
             ...
         ]
         '''
-        estimate = []
         for line in data:
             # BOS, EOS を外して返す
-            estimate.append(self.__predict_pos_line(line)[1:-1])
-        return estimate
+            yield self.__predict_pos_line(line)[1:-1]
     
     def __predict_pos_line(self, line):
         best_edges = self.__vitabi_forward(line)
