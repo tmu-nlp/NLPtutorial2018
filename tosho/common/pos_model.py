@@ -18,8 +18,12 @@ def load_data(filename, mode='train'):
     with open(filename, 'r') as f:
         data = []
         for line in f:
+            pairs = line.strip('\n').split(' ')
+            pairs.insert(0, '<s>_BOS')
+            pairs.append('</s>_EOS')
+
             this_data = []
-            for pair in line.strip('\n').split(' '):
+            for pair in pairs:
                 if mode == 'train':
                     word, pos = pair.split('_')
                     this_data.append((word, pos))
@@ -127,6 +131,13 @@ class PosModel:
     def __predict_pos_line(self, line):
         for word in line:
             yield word
+    
+    def __vitabi_forward(self, line):
+        best_edges = []
+        best_scores = []
+
+
+        return best_edges
 
 if __name__ == '__main__':
     data = load_data('../../test/05-train-input.txt')
