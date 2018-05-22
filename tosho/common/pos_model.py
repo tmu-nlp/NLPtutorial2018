@@ -3,6 +3,7 @@ sys.path.append(os.path.pardir)
 
 from collections import defaultdict
 import pickle
+import math
 
 def load_data(filename, mode='train'):
     '''
@@ -125,19 +126,70 @@ class PosModel:
         '''
         estimate = []
         for line in data:
-            estimate.append(self.__predict_pos_line(line))
+            # BOS, EOS を外して返す
+            estimate.append(self.__predict_pos_line(line)[1:-1])
         return estimate
     
     def __predict_pos_line(self, line):
-        for word in line:
-            yield word
+        best_edges = self.__vitabi_forward(line)
+        tags = self.__vitabi_backward(line, best_edges)
+
+        return tags
     
     def __vitabi_forward(self, line):
-        best_edges = []
-        best_scores = []
+        best_edges = {}
+        best_scores = defaultdict(lambda : 10**10)
 
+        best_edges['0 BOS'] = None
+        best_scores['0 BOS'] = 0
+
+        prev_poses = ['BOS']
+        # <s> に相当するノードは上で追加したので、その後から始める
+        for i, word in enumerate(line[1:], 1):
+            next_prev_poses = []
+            for prev_pos in prev_poses:
+                prev_node_key = f'{i-1} {prev_pos}'
+
+                # 共起しないPOSは対数尤度が無限になるので、その時点で除外されるため
+                # 共起するPOSだけを検査する
+                this_poses = self.Pt[prev_pos].keys()
+                # print(f'{i} : {prev_pos} => {list(this_poses)}')
+                for this_pos in this_poses:
+                    node_key = f'{i} {this_pos}'
+
+                    # パスの尤度を計算する
+                    score = best_scores[prev_node_key]
+                    score += -math.log2(self.Pt[prev_pos][this_pos])
+                    score += -math.log2(self.lam * self.Pe[this_pos][word] + (1 - self.lam) * self.unk_rate)
+
+                    # 最適パスを更新する
+                    if best_scores[node_key] > score:
+                        # print(f'{i} : {best_scores[node_key]} > {score}')
+                        best_scores[node_key] = score
+                        best_edges[node_key] = prev_node_key
+
+                next_prev_poses += this_poses
+            prev_poses = list(set(next_prev_poses))
+        
+        # for key in best_scores.keys():
+        #     print(f'{best_edges[key]} => {key} : {best_scores[key]}')
 
         return best_edges
+
+    def __vitabi_backward(self, line, best_edges):
+        tags = []
+        next_edge = f'{len(line)-1} EOS'
+
+        while next_edge != None:
+            position, tag = next_edge.split(' ')
+            tags.append(tag)
+            # print(f'{next_edge} => {best_edges[next_edge]}')
+            next_edge = best_edges[next_edge]
+        
+        tags.reverse()
+
+        return tags
+
 
 if __name__ == '__main__':
     data = load_data('../../test/05-train-input.txt')
