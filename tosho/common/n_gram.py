@@ -107,12 +107,12 @@ class NGram:
         
         return -1 * H / W
 
-    def split_sentence(self, sentence):
-        best_scores, best_edges = self.__viterbi_forward(sentence)
+    def segment(self, sentence, unk_len=1):
+        best_scores, best_edges = self.__viterbi_forward(sentence, unk_len)
         words = self.__viterbi_backward(sentence, best_scores, best_edges)
         return words
 
-    def __viterbi_forward(self, sentence):
+    def __viterbi_forward(self, sentence, unk_len):
         best_scores = [0.0]
         best_edges = [None]
 
@@ -122,7 +122,7 @@ class NGram:
             for word_begin in range(0, word_end):
                 canditee = sentence[word_begin:word_end]
                 # 既知語か長さ１の未知語の場合
-                if self.has(canditee) or len(canditee) == 1:
+                if self.has(canditee) or len(canditee) <= unk_len:
                     p = self.prob(canditee)
                     this_score = best_scores[word_begin] - math.log2(p)
                     if this_score < best_score:
