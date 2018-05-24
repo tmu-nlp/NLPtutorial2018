@@ -47,18 +47,31 @@ class Trie:
         self._unk_value = trans_prob(unk_term)
         self._data = {}
         self._cache = {}
+        self._prefix = model.num_gram > 1
         for ng, value in model.iterprob:
             curr = self._data
-            word = ' '.join(ng)
+            word = ng[-1]
+            value = trans_prob(interpolator(value))
             for char in word:
                 if char not in curr:
                     curr[char] = {}
                     curr = curr[char]
                 else:
                     curr = curr[char]
-            curr[Trie._eow] = trans_prob(interpolator(value))
+            if model.num_gram == 1:
+                curr[Trie._eow] = value
+            else:
+                if Trie._eow in curr:
+                    curr[Trie._eow][ng[:-1]] = value
+                else:
+                    curr[Trie._eow] = {ng[-1]: value}
 
-    def search_through(self, word: str):# -> bool:
+    @property
+    def needs_prefix(self):
+        return self._prefix
+
+    def search_through(self, word: str):
+        #print("search", word)
         curr = self._data
         for i, char in enumerate(word):
             if char in curr:
@@ -67,15 +80,19 @@ class Trie:
                     subw = word[:i+1]
                     self._cache[subw] = curr[Trie._eow]
                     yield subw
+            else:# bloody to escape
+                break
 
     def __getitem__(self, word: str):
         return self._cache[word]
 
-    def set_unk(self, word: str):
+    def set_unk(self, word: str, warning_len = 10):
         #print("DBGjl", word, self._cache, word in self._cache , self._cache[word] != self._unk_value)
         if word in self._cache and self._cache[word] != self._unk_value or word == '':
             raise ValueError("Never happen in set_unk for '%s'" % word)
         # print("set unk", word)
+        if len(word) > warning_len:
+            raise ValueError("see", word)
         self._cache[word] = self._unk_value
 
     @property
@@ -87,7 +104,7 @@ class Trie:
         return self._data
 
 
-def viterbi(model: Trie, tokens: str, verbose = False):
+def viterbi(model: Trie, tokens: str, **verbose):
     def forward():
         def step_back_from(start):
             stratum = strata[start]
@@ -102,56 +119,56 @@ def viterbi(model: Trie, tokens: str, verbose = False):
         strata[0]['min_loss'] = 0
         coverage = []
         unk_start = length
+        verbose_str = ''
         for start in range(length): # the last one will be left behind
-            # find edge from start to all already ends
+            # [discovery]
             fractions = []
             word_gen = model.search_through(tokens[start:])
-            for i, word in enumerate(word_gen):
+            for word in word_gen:
                 end = start + len(word)
                 strata[end]['end'].add(word)
                 fractions.append(end)
-                # print(length, start, strata[start],fractions)
-                #if word == 'は':
-                #    print(start, word, 'in dict')
+                if verbose and len(word) > verbose.get('warning_len', 10):
+                    verbose_str += "Add long word at pos(%d) '%s';\n" % (start, word)
 
-            # guarantee for continuity 02+
+            if verbose and len(fractions) > verbose.get('fraction_size', 5):
+                verbose_str += "Find %d fractions at pos(%d);\n" % (len(fractions), start)
+            # [fractions] in discovery
+            for i,j in any_ranges(fractions):
+                frac_word = tokens[i:j]
+                strata[j]['end'].add(frac_word)
+
+                last_result = None
+                for last_result in model.search_through(frac_word):
+                    pass
+                if last_result != frac_word:
+                    model.set_unk(frac_word)
+
+            # [unk] guarantee for continuity of chars
             if not fractions or fractions[0] - start > 1:
                 char = tokens[start]
                 strata[start+1]['end'].add(char)
-                # print(start, char, fractions, char)
                 model.set_unk(char)
-                if verbose and fractions and unk_start == length: # to link continuous unks
+                if not fractions and unk_start == length: # [long unk]
                     unk_start = start
-                    print('unk start:', char, start)
-                # continue # is bad for continuity
+                    if verbose:
+                        verbose_str += "Find unk (possible longer) '%s' start at pos(%d)\n" % (char, start)
 
-            # face fractions 1
-            elif verbose and fractions:
-                # of one prefix
-                if unk_start < start - 1 < length: # link continuous unks
-                    frac_word = tokens[unk_start:start-1]
+            # [long unk] JIT
+            elif fractions:
+                frac_word = tokens[unk_start:start]
+                if unk_start < start - 2 < length:
                     strata[end]['end'].add(frac_word)
                     model.set_unk(frac_word)
-                    unk_start = length
-                    print("finish unk", frac_word)
+                    if verbose:
+                        verbose_str += "Finish long unk '%s'(%d,%d)\n" % (frac_word, unk_start, start)
+                elif verbose:
+                    verbose_str += "Cancel long unk '%s'(%d,%d)\n" % (frac_word, unk_start, start)
+                unk_start = length
 
-                # and many suffixes
-                #for i,j in any_ranges(fractions):
-                #    frac_word = tokens[i:j]
-                #    strata[j]['end'].add(frac_word)
-                #    print("frac:", frac_word)
-                #    try:
-                #        next(model.search_through(frac_word))
-                #    except StopIteration:
-                #        model.set_unk(frac_word)
-                for i, s in enumerate(strata):
-                    print(start, i, s)
-                print('\n\n')
-
-            # bode for step with in 0:start
             step_back_from(start)
         step_back_from(length)
-        return strata
+        return strata, verbose_str
 
     def backward(strata):
         based_on = -1
@@ -163,7 +180,13 @@ def viterbi(model: Trie, tokens: str, verbose = False):
         solution.reverse()
         return solution
 
-    return backward(forward())
+    strata, verbose_str = forward()
+    if verbose:
+        for i, s in enumerate(strata):
+            verbose_str += f"{i} {s}\n"
+        verbose_str += "\n"
+        return backward(strata), verbose_str
+    return backward(strata)
 
 
 def plot_2d_contour(x_y_entropy):
