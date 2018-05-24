@@ -33,6 +33,7 @@ if __name__ == "__main__":
                 ans = dsp.split(' ')
                 que = ''.join(ans)
                 print("Origin: %s\n split: %s\n" % ('|'.join(ans), '|'.join(viterbi(trie, que, verbose = True)))) # match the answer
+                # print(' '.join(viterbi(trie, que))) # match the answer
     else:
         model = N_Gram(1, args.source)
         model.load()

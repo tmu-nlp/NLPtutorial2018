@@ -89,7 +89,8 @@ class Trie:
 
 def viterbi(model: Trie, tokens: str, verbose = False):
     def forward():
-        def step_back_from(stratum):
+        def step_back_from(start):
+            stratum = strata[start]
             if stratum['end']:
                 path_loss_gen = ((tok, model[tok]+strata[start - len(tok)]['min_loss']) for tok in stratum['end'])
                 tok, min_loss = min(path_loss_gen, key = lambda x:x[1])
@@ -110,10 +111,10 @@ def viterbi(model: Trie, tokens: str, verbose = False):
                 strata[end]['end'].add(word)
                 fractions.append(end)
                 # print(length, start, strata[start],fractions)
-                # if word == 'は':
-                #     print(start, word, 'in dict')
+                #if word == 'は':
+                #    print(start, word, 'in dict')
 
-            # guarantee for continuity
+            # guarantee for continuity 02+
             if not fractions or fractions[0] - start > 1:
                 char = tokens[start]
                 strata[start+1]['end'].add(char)
@@ -121,9 +122,10 @@ def viterbi(model: Trie, tokens: str, verbose = False):
                 model.set_unk(char)
                 if verbose and fractions and unk_start == length: # to link continuous unks
                     unk_start = start
+                    print('unk start:', char, start)
                 # continue # is bad for continuity
 
-            # face fractions
+            # face fractions 1
             elif verbose and fractions:
                 # of one prefix
                 if unk_start < start - 1 < length: # link continuous unks
@@ -131,24 +133,24 @@ def viterbi(model: Trie, tokens: str, verbose = False):
                     strata[end]['end'].add(frac_word)
                     model.set_unk(frac_word)
                     unk_start = length
+                    print("finish unk", frac_word)
 
                 # and many suffixes
-                for i,j in any_ranges(fractions):
-                    frac_word = tokens[i:j]
-                    strata[j]['end'].add(frac_word)
-                    print("frac:", frac_word)
-                    try:
-                        next(model.search_through(frac_word))
-                    except StopIteration:
-                        model.set_unk(frac_word)
-                for s in strata:
-                    print(s)
+                #for i,j in any_ranges(fractions):
+                #    frac_word = tokens[i:j]
+                #    strata[j]['end'].add(frac_word)
+                #    print("frac:", frac_word)
+                #    try:
+                #        next(model.search_through(frac_word))
+                #    except StopIteration:
+                #        model.set_unk(frac_word)
+                for i, s in enumerate(strata):
+                    print(start, i, s)
                 print('\n\n')
 
             # bode for step with in 0:start
-            step_back_from(strata[start])
-        start += 1
-        step_back_from(strata[length])
+            step_back_from(start)
+        step_back_from(length)
         return strata
 
     def backward(strata):
