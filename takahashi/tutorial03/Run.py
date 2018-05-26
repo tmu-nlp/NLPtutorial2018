@@ -49,11 +49,11 @@ def evaluate(_input_file, _model_file):
 
 
 ## train
-# print("---- test with example ----")
-# test('../../test/04-model.txt')
+print("---- test with example ----")
+test('../../test/04-model.txt')
 # print("---- train by samples ----")
 # train('wiki-ja-train')
-print("---- apply for the sample ----")
-ret = evaluate('wiki-ja-test', 'wiki-ja')
-with open('my_answer.word', 'w', encoding='utf-8') as f:
-    f.write('\n'.join(ret))
+# print("---- apply for the sample ----")
+# ret = evaluate('wiki-ja-test', 'wiki-ja')
+# with open('my_answer.word', 'w', encoding='utf-8') as f:
+#     f.write('\n'.join(ret))
