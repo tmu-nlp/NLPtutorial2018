@@ -29,10 +29,12 @@ if __name__ == "__main__":
         trie = Trie(model, prob_proc, nlog_gen())
         with open(args.destine) as fr:
             for ans in fr:
-                dsp = ans.strip()
+                dsp = ans.strip('\n')
                 ans = dsp.split(' ')
                 que = ''.join(ans)
-                print("Origin: %s\n split: %s\n" % ('|'.join(ans), '|'.join(viterbi(trie, que, verbose = True)))) # match the answer
+                ret, info = viterbi(trie, que, verbose = True)
+                print("Origin: %s\n split: %s\n%s\n" % ('|'.join(ans), '|'.join(ret) , info)) # match the answer
+                # print(' '.join(ret)) # match the answer
     else:
         model = N_Gram(1, args.source)
         model.load()
