@@ -1,5 +1,8 @@
+import sys
+sys.path.append("..")
 from collections import defaultdict as ddict
 from typing import Dict, Tuple
+from utils.n_gram import unigram_smooth_gen, interpolate_gen
 
 sos = '<s>'
 eos = '</s>'
@@ -20,11 +23,13 @@ def _str(mt: _matFloat, prefix: str) -> str:
     return s
 
 class Hidden_Markov:
-    def __init__(self):
+    def __init__(self, **params):
         self._trans = ddict(int)
-        self._gen = ddict(int)
+        self._emits = ddict(int)
         self._states = ddict(int)
         self._outputs = ddict(int)
+        self._uni_smooth = params.get('uni_smooth', unigram_smooth_gen(0.95, 1/1000000))
+        self._bi_smooth  = params.get('bi_smooth',  interpolate_gen(0.95))
 
     def add(self, o_s_gen):
         old_state = sos
@@ -32,7 +37,7 @@ class Hidden_Markov:
         for out, state in o_s_gen:
             self._outputs[out] += 1
             self._states[state] += 1
-            self._gen[(state, out)] += 1
+            self._emits[(state, out)] += 1
             self._trans[(old_state, state)] += 1
             old_state = state
         self._trans[(old_state, eos)] += 1
@@ -40,38 +45,53 @@ class Hidden_Markov:
 
     def seal(self):
         self._trans = _seal(self._trans, self._states)
-        self._gen = _seal(self._gen, self._states)
+        self._emits = _seal(self._emits, self._states)
 
     def __str__(self):
-        return _str(self._trans, 'T') + _str(self._gen, 'G')
+        return _str(self._trans, 'T') + _str(self._emits, 'G')
+
+    def tran(self, states):
+        if states in self._trans:
+            return self._uni_smooth(self._trans[states])
+        return self._uni_smooth(0)
+
+    def emit(self, state_output):
+        state, output = state_output
+        if state_output in self._emits:
+            word_uni_gram = self._uni_smooth(self._outputs[output])
+            return self._bi_smooth(self._emits[state_output], word_uni_gram)
+        return self._uni_smooth(0)
 
     def get_hidden(self, outputs):
         from math import log
         make_cost = lambda x: -log(x) # deal with oov
 
         # forward lattice
-        lattice = [{sos:0}]
+        lattice = [{(None, sos):0}]
         for i, out in enumerate(outputs):
-            for new_state, prob in self._states:
+            layer = {}
+            for new_state, prob in self._states.items():
+                if new_state == sos:
+                    continue
                 best_trans = None
-                for last_state, prev_cost in lattice[i].items():
-                    trans_cost = make_cost(self._trans[(last_state, new_state)])
-                    emit_cost  = make_cost(self._gen[(new_state, out)])
+                for last_trans, prev_cost in lattice[i].items():
+                    last_state = last_trans[-1]
+                    trans_cost = make_cost(self.tran((last_state, new_state)))
+                    emit_cost  = make_cost(self.emit((new_state, out)))
                     total_cost = trans_cost + emit_cost + prev_cost
                     if best_trans and total_cost < best_trans[-1] or best_trans is None:
                             best_trans = (last_state, new_state), total_cost
-                lattice.append(best_trans)
+                layer[best_trans[0]] = best_trans[-1]
+            lattice.append(layer)
 
         # backward lattice
         lattice.reverse()
-        lasttice.pop(0) # already in best_trans
-        best_trans = best_trans[0]
+        best_trans = min(lattice.pop(0).items(), key = lambda x: x[-1])[0]
         best_hidden = []
-        while len(lattice) > 1: # sos at 0
+        while len(lattice): # sos at 0
             last_state, new_state = best_trans
             best_hidden.append(new_state)
-            layer = lattice.pop(0)
-            for last_trans in layer.keys():
+            for last_trans in lattice.pop(0).keys():
                 if last_trans[1] == last_state:
                     best_trans = last_trans
                     break
@@ -82,10 +102,14 @@ class Hidden_Markov:
 if '__main__' == __name__:
     hmm = Hidden_Markov()
     print(hmm)
-    with open("../../test/05-train-input.txt") as fr:
+    with open("../../data/wiki-en-train.norm_pos") as fr:
         for line in fr:
             line = line.strip().split()
             o_s_gen = (o_s.split('_') for o_s in line)
             hmm.add(o_s_gen)
     hmm.seal()
     print(hmm)
+    with open("../../data/wiki-en-test.norm") as fr:
+        for line in fr:
+            line = line.strip().split()
+            print(' '.join(hmm.get_hidden(line)))
