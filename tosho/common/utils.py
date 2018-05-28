@@ -8,7 +8,7 @@ def load_labeled_data(file_name):
             line = line.strip('\n')
             t, x = line.split('\t')
             x = [word.lower() for word in x.split(' ')]
-            yield (x, t)
+            yield (x, int(t))
 
 def load_word_data(file_name):
     with open(file_name, 'r') as f:
