@@ -3,6 +3,7 @@ import numpy
 from collections import defaultdict
 from random import sample
 import pickle
+import matplotlib.pyplot as plt
 
 class BinaryClassifier(object):
     def __init__(self):
@@ -44,7 +45,7 @@ class BinaryClassifier(object):
         with open(file_name, 'rb') as f:
             self.params = pickle.load(f)
 
-class BinaryClassifierOptimizer(object):
+class SimpleOptimizer(object):
     def __init__(self, lr=1):
         self.lr = lr
     
@@ -55,7 +56,7 @@ class BinaryClassifierOptimizer(object):
 class Trainer(object):
     def __init__(self, model, train_data, test_data,
                  epochs=20, mini_batch_size=100,
-                 optimizer=BinaryClassifierOptimizer()):
+                 optimizer=SimpleOptimizer()):
         self.model = model
         self.train_data = train_data
         self.test_data = test_data
@@ -72,9 +73,6 @@ class Trainer(object):
 
         self.train_acc_list = []
         self.test_acc_list = []
-
-        print(self.iter_per_epoch)
-        print(self.iter_cap)
 
     def train(self):
         for i in range(self.iter_cap):
@@ -109,6 +107,13 @@ class Trainer(object):
             self.test_acc_list.append(test_acc)
 
         self.current_iter += 1
+
+    def draw_accuracy(self, file_name='figure.png'):
+        plt.plot(self.train_acc_list, self.test_acc_list)
+        fig = plt.gcf()
+        plt.show()
+        plt.draw()
+        fig.savefig(file_name, dpi=100)
 
 if __name__ == '__main__':
     import os, sys
