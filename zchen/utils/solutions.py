@@ -33,9 +33,6 @@ def any_ranges(ordered):
 
 
 class Trie:
-    """
-    Our trie node implementation. Very basic. but does the job
-    """
     _eow  = 'vAlUe'
 
     @classmethod
@@ -47,10 +44,9 @@ class Trie:
         self._unk_value = trans_prob(unk_term)
         self._data = {}
         self._cache = {}
-        self._prefix = model.num_gram > 1
-        for ng, value in model.iterprob:
+        for ng, value in model.iter_prob:
             curr = self._data
-            word = ng[-1]
+            word = ng[-1] # I know how to implement bi-gram version
             value = trans_prob(interpolator(value))
             for char in word:
                 if char not in curr:
@@ -58,20 +54,9 @@ class Trie:
                     curr = curr[char]
                 else:
                     curr = curr[char]
-            if model.num_gram == 1:
-                curr[Trie._eow] = value
-            else:
-                if Trie._eow in curr:
-                    curr[Trie._eow][ng[:-1]] = value
-                else:
-                    curr[Trie._eow] = {ng[-1]: value}
-
-    @property
-    def needs_prefix(self):
-        return self._prefix
+            curr[Trie._eow] = value
 
     def search_through(self, word: str):
-        #print("search", word)
         curr = self._data
         for i, char in enumerate(word):
             if char in curr:
@@ -80,7 +65,7 @@ class Trie:
                     subw = word[:i+1]
                     self._cache[subw] = curr[Trie._eow]
                     yield subw
-            else:# bloody to escape
+            else:# bloody bug: need more negative test case
                 break
 
     def __getitem__(self, word: str):
@@ -131,18 +116,19 @@ def viterbi(model: Trie, tokens: str, **verbose):
                 if verbose and len(word) > verbose.get('warning_len', 10):
                     verbose_str += "Add long word at pos(%d) '%s';\n" % (start, word)
 
-            if verbose and len(fractions) > verbose.get('fraction_size', 5):
-                verbose_str += "Find %d fractions at pos(%d);\n" % (len(fractions), start)
             # [fractions] in discovery
-            for i,j in any_ranges(fractions):
-                frac_word = tokens[i:j]
-                strata[j]['end'].add(frac_word)
+            if verbose and verbose.get('fragmentize', False):
+                if len(fractions) > verbose.get('fraction_size', 5):
+                    verbose_str += "Find %d fractions at pos(%d);\n" % (len(fractions), start)
+                for i,j in any_ranges(fractions):
+                    frac_word = tokens[i:j]
+                    strata[j]['end'].add(frac_word)
 
-                last_result = None
-                for last_result in model.search_through(frac_word):
-                    pass
-                if last_result != frac_word:
-                    model.set_unk(frac_word)
+                    last_result = None
+                    for last_result in model.search_through(frac_word):
+                        pass
+                    if last_result != frac_word:
+                        model.set_unk(frac_word)
 
             # [unk] guarantee for continuity of chars
             if not fractions or fractions[0] - start > 1:
@@ -158,7 +144,7 @@ def viterbi(model: Trie, tokens: str, **verbose):
             elif fractions:
                 frac_word = tokens[unk_start:start]
                 if unk_start < start - 2 < length:
-                    strata[end]['end'].add(frac_word)
+                    strata[start]['end'].add(frac_word) # Once costy bug: python name scope 'start'
                     model.set_unk(frac_word)
                     if verbose:
                         verbose_str += "Finish long unk '%s'(%d,%d)\n" % (frac_word, unk_start, start)
