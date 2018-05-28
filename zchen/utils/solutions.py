@@ -33,9 +33,6 @@ def any_ranges(ordered):
 
 
 class Trie:
-    """
-    Our trie node implementation. Very basic. but does the job
-    """
     _eow  = 'vAlUe'
 
     @classmethod
@@ -47,18 +44,19 @@ class Trie:
         self._unk_value = trans_prob(unk_term)
         self._data = {}
         self._cache = {}
-        for ng, value in model.iterprob:
+        for ng, value in model.iter_prob:
             curr = self._data
-            word = ' '.join(ng)
+            word = ng[-1] # I know how to implement bi-gram version
+            value = trans_prob(interpolator(value))
             for char in word:
                 if char not in curr:
                     curr[char] = {}
                     curr = curr[char]
                 else:
                     curr = curr[char]
-            curr[Trie._eow] = trans_prob(interpolator(value))
+            curr[Trie._eow] = value
 
-    def search_through(self, word: str):# -> bool:
+    def search_through(self, word: str):
         curr = self._data
         for i, char in enumerate(word):
             if char in curr:
@@ -67,15 +65,19 @@ class Trie:
                     subw = word[:i+1]
                     self._cache[subw] = curr[Trie._eow]
                     yield subw
+            else:# bloody bug: need more negative test case
+                break
 
     def __getitem__(self, word: str):
         return self._cache[word]
 
-    def set_unk(self, word: str):
+    def set_unk(self, word: str, warning_len = 10):
         #print("DBGjl", word, self._cache, word in self._cache , self._cache[word] != self._unk_value)
         if word in self._cache and self._cache[word] != self._unk_value or word == '':
             raise ValueError("Never happen in set_unk for '%s'" % word)
         # print("set unk", word)
+        if len(word) > warning_len:
+            raise ValueError("see", word)
         self._cache[word] = self._unk_value
 
     @property
@@ -87,9 +89,10 @@ class Trie:
         return self._data
 
 
-def viterbi(model: Trie, tokens: str, verbose = False):
+def viterbi(model: Trie, tokens: str, **verbose):
     def forward():
-        def step_back_from(stratum):
+        def step_back_from(start):
+            stratum = strata[start]
             if stratum['end']:
                 path_loss_gen = ((tok, model[tok]+strata[start - len(tok)]['min_loss']) for tok in stratum['end'])
                 tok, min_loss = min(path_loss_gen, key = lambda x:x[1])
@@ -101,55 +104,57 @@ def viterbi(model: Trie, tokens: str, verbose = False):
         strata[0]['min_loss'] = 0
         coverage = []
         unk_start = length
+        verbose_str = ''
         for start in range(length): # the last one will be left behind
-            # find edge from start to all already ends
+            # [discovery]
             fractions = []
             word_gen = model.search_through(tokens[start:])
-            for i, word in enumerate(word_gen):
+            for word in word_gen:
                 end = start + len(word)
                 strata[end]['end'].add(word)
                 fractions.append(end)
-                # print(length, start, strata[start],fractions)
-                # if word == 'は':
-                #     print(start, word, 'in dict')
+                if verbose and len(word) > verbose.get('warning_len', 10):
+                    verbose_str += "Add long word at pos(%d) '%s';\n" % (start, word)
 
-            # guarantee for continuity
-            if not fractions or fractions[0] - start > 1:
-                char = tokens[start]
-                strata[start+1]['end'].add(char)
-                # print(start, char, fractions, char)
-                model.set_unk(char)
-                if verbose and fractions and unk_start == length: # to link continuous unks
-                    unk_start = start
-                # continue # is bad for continuity
-
-            # face fractions
-            elif verbose and fractions:
-                # of one prefix
-                if unk_start < start - 1 < length: # link continuous unks
-                    frac_word = tokens[unk_start:start-1]
-                    strata[end]['end'].add(frac_word)
-                    model.set_unk(frac_word)
-                    unk_start = length
-
-                # and many suffixes
+            # [fractions] in discovery
+            if verbose and verbose.get('fragmentize', False):
+                if len(fractions) > verbose.get('fraction_size', 5):
+                    verbose_str += "Find %d fractions at pos(%d);\n" % (len(fractions), start)
                 for i,j in any_ranges(fractions):
                     frac_word = tokens[i:j]
                     strata[j]['end'].add(frac_word)
-                    print("frac:", frac_word)
-                    try:
-                        next(model.search_through(frac_word))
-                    except StopIteration:
-                        model.set_unk(frac_word)
-                for s in strata:
-                    print(s)
-                print('\n\n')
 
-            # bode for step with in 0:start
-            step_back_from(strata[start])
-        start += 1
-        step_back_from(strata[length])
-        return strata
+                    last_result = None
+                    for last_result in model.search_through(frac_word):
+                        pass
+                    if last_result != frac_word:
+                        model.set_unk(frac_word)
+
+            # [unk] guarantee for continuity of chars
+            if not fractions or fractions[0] - start > 1:
+                char = tokens[start]
+                strata[start+1]['end'].add(char)
+                model.set_unk(char)
+                if not fractions and unk_start == length: # [long unk]
+                    unk_start = start
+                    if verbose:
+                        verbose_str += "Find unk (possible longer) '%s' start at pos(%d)\n" % (char, start)
+
+            # [long unk] JIT
+            elif fractions:
+                frac_word = tokens[unk_start:start]
+                if unk_start < start - 2 < length:
+                    strata[start]['end'].add(frac_word) # Once costy bug: python name scope 'start'
+                    model.set_unk(frac_word)
+                    if verbose:
+                        verbose_str += "Finish long unk '%s'(%d,%d)\n" % (frac_word, unk_start, start)
+                elif verbose:
+                    verbose_str += "Cancel long unk '%s'(%d,%d)\n" % (frac_word, unk_start, start)
+                unk_start = length
+
+            step_back_from(start)
+        step_back_from(length)
+        return strata, verbose_str
 
     def backward(strata):
         based_on = -1
@@ -161,7 +166,13 @@ def viterbi(model: Trie, tokens: str, verbose = False):
         solution.reverse()
         return solution
 
-    return backward(forward())
+    strata, verbose_str = forward()
+    if verbose:
+        for i, s in enumerate(strata):
+            verbose_str += f"{i} {s}\n"
+        verbose_str += "\n"
+        return backward(strata), verbose_str
+    return backward(strata)
 
 
 def plot_2d_contour(x_y_entropy):

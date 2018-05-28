@@ -172,11 +172,11 @@ class N_Gram:
     def __getattr__(self, attr_name):
         if attr_name.startswith('iter'):
             attr_name = attr_name[4:]
-            if attr_name == 'count':
+            if attr_name == '_count':
                 data = self._model[1]
-            elif attr_name == 'witten_bell':
+            elif attr_name == '_witten_bell':
                 data = self._model[-1]
-            elif attr_name == 'prob':
+            elif attr_name == '_prob':
                 data = self._prob
             elif attr_name == '_cond_prob':
                 data = self._cond_prob
@@ -298,6 +298,23 @@ class N_Gram_Family:
             log_prob  += _nlog(w_prob_by_last_model)
             num_token += 1
         return log_prob / num_token
+
+    def cond_prob_of(self, ng):
+        n = len[ng]
+        family = self._family[n:]
+        weights = self._weights[n:]
+        uni_gram = family.pop(0)
+        uni_weight = weights.pop(0)
+        prob_ = uni_gram.prob_of(ng[-1])
+        cond_prob_ = uni_weight(prob_, self._zero_gram_prob)
+        smoothed = 0
+        for weight, model in zip(weights, family):
+            prob = model.prob_of(ng[-model.num_gram:])
+            cond_prob = prob / prob_
+            smoothed += weight(cond_prob, cond_prob_)
+            prob_ = prob
+            cond_prob_ = cond_prob
+        return smooothed
 
 
 if __name__ == "__main__":
