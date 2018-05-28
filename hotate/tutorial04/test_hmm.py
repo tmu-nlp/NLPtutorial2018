@@ -50,9 +50,7 @@ def load_model(model_file, path):
 
         tags = []
         next_edge = best_edge[f'{len(words)} </s>']
-        while next_edge is not '0 <s>':
-            if next_edge == '0 <s>':
-                break
+        while next_edge != '0 <s>':
             tag = next_edge.split(' ')[1]
             tags.append(tag)
             next_edge = best_edge[next_edge]
@@ -65,7 +63,7 @@ if __name__ == '__main__':
     # path = '../../test/05-test-input.txt'
     path = '../../data/wiki-en-test.norm'
     model_file = open('model_file')
-    with open('my_answer.word', 'w') as f:
+    with open('my_answer_1.word', 'w') as f:
         for sentence in load_model(model_file, path):
             f.write(f'{sentence}\n')
 
