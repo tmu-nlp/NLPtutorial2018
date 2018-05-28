@@ -5,12 +5,12 @@ if __name__ == '__main__':
     import sys, os
     sys.path.append(os.pardir)
 
-    from common.binary_classifier import BinaryClassifier, BinaryClassifierOptimizer, Trainer
+    from common.binary_classifier import BinaryClassifier, Trainer
     from common.utils import load_labeled_data, load_word_data
 
     model = BinaryClassifier()
     model.load_params('model.pkl')
 
     for x in load_word_data('../../data/titles-en-test.word'):
-        t = model.predict(x)
-        print(f'{t}\t{" ".join(x)}')
+        y = model.predict(x)
+        print(f'{y}\t{" ".join(x)}')
