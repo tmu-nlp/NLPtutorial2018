@@ -5,7 +5,7 @@ dict = {}
 file = open(sys.argv[1],"r")
 
 for line in file:
-    line = line.strip()
+    line = line.strip() #改行文字を削除
     words = line.split(" ")
     
     for word in words:
@@ -13,6 +13,8 @@ for line in file:
             dict[word] = 1
         else:
             dict[word] += 1
+
+file.close()
         
 for key, value in sorted(dict.items()):
     print(f"{key} {value}")
