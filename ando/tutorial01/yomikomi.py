@@ -18,8 +18,8 @@ for line in lines:
     partcul = 1
     line = line.rstrip()
     test_words = line.split(" ")
-    test_words.append("</s>")
     wordcount += len(test_words)
+    test_words.append("</s>")
     for i in test_words:
         if i in dic:
             partcul *= 0.95*(float(dic[i]))+0.05*(1/1000000)
