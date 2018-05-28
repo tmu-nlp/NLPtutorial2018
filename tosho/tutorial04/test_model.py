@@ -13,9 +13,19 @@ if __name__ == '__main__':
     model = PosModel()
     model.load_params(arg.model_file)
 
-    t_data =load_data(arg.test_file, mode='test')
+    t_data =load_data(arg.test_file, mode='test', decorator=lambda w: w.lower())
 
     estimate = model.predict_pos(t_data)
 
     for line in estimate:
         print(' '.join(line))
+
+
+'''
+Improvement
+=====
+１．lower に変換
++0.04% 向上した。
+全体として、誤りが２つほど減ったが、減ったところと増えたところが入り混じっている。
+
+'''

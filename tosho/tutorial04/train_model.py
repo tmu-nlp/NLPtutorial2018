@@ -10,7 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--model-file', required=True)
     arg = parser.parse_args()
 
-    data = load_data(arg.train_file)
+    data = load_data(arg.train_file, decorator=lambda w: w.lower())
 
     model = PosModel()
     model.train(data)
