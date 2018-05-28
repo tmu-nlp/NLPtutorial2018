@@ -10,9 +10,15 @@ class BinaryClassifier(object):
         # alias to params['W']
         self.params = defaultdict(int)
     
-    def predict(self, x):
+    def predict(self, x, verbose=False):
         score = [self.params[word] for word in x]
-        return numpy.sign(sum(score))
+        s = sum(score)
+        if verbose:
+            print(f'{score} : {sum(s)}')
+        if s == 0:
+            return 0
+        else:
+            return numpy.sign(sum(score))
     
     def loss(self, x, t):
         y = self.predict(x)
