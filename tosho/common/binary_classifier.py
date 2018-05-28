@@ -11,7 +11,7 @@ class BinaryClassifier(object):
     
     def predict(self, x):
         score = [self.params[word] for word in x]
-        return numpy.sign(max(score))
+        return numpy.sign(sum(score))
     
     def loss(self, x, t):
         y = self.predict(x)
