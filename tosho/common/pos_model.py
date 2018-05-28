@@ -5,7 +5,7 @@ from collections import defaultdict
 import pickle
 import math
 
-def load_data(filename, mode='train'):
+def load_data(filename, mode='train', decorator=None):
     '''
     return
     =====
@@ -16,6 +16,9 @@ def load_data(filename, mode='train'):
         ...
     ]
     '''
+    if decorator is None:
+        decorator = lambda w: w
+
     with open(filename, 'r') as f:
         data = []
         for line in f:
@@ -27,9 +30,11 @@ def load_data(filename, mode='train'):
             for pair in pairs:
                 if mode == 'train':
                     word, pos = pair.split('_')
+                    word = decorator(word)
                     this_data.append((word, pos))
                 elif mode == 'test':
                     word = pair.split('_')[0]
+                    word = decorator(word)
                     this_data.append(word)
             data.append(this_data)
         return data
