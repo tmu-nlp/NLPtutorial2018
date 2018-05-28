@@ -11,7 +11,6 @@ with open(sys.argv[1], 'r') as train_file:
 		previous = "<s>"
 		context[previous] += 1
 		wordtags = line.split(" ")
-		print(wordtags)
 		for wordtag in wordtags:
 			word = wordtag.split("_")[0]
 			tag = wordtag.split("_")[1]
