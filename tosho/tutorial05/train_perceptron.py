@@ -14,7 +14,7 @@ if __name__ == '__main__':
     
     print(f'train data: {len(train_data)} | test data: {len(test_data)}')
 
-    trainer = Trainer(model, train_data, test_data, epochs=50, optimizer=optimizer)
+    trainer = Trainer(model, train_data, test_data, epochs=100, optimizer=optimizer)
     trainer.train()
 
     trainer.draw_accuracy('model.png')

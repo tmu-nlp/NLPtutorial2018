@@ -6,20 +6,23 @@ import pickle
 import matplotlib.pyplot as plt
 
 class BinaryClassifier(object):
+
     def __init__(self):
-        # alias to params['W']
         self.params = defaultdict(int)
+        self.perceptron_threshold = 0.1
     
     def predict(self, x, verbose=False):
         score = [self.params[word] for word in x]
         s = sum(score)
+
         if verbose:
             sorted_score = sorted(zip(score, x), key=lambda i: i[0])
             for item in sorted_score:
                 print(f'{item[1]} -> {item[0]}')
             print('='*20)
             print(f'total : {s}')
-        if s == 0:
+
+        if abs(s) < self.perceptron_threshold:
             return 0
         else:
             return np.sign(s)
@@ -61,7 +64,11 @@ class SimpleOptimizer(object):
     
     def update(self, params, grads):
         for w, g in grads.items():
-            params[w] += self.lr * g
+            new_val = params[w] + self.lr * g
+            # # 正則化
+            # if abs(new_val) >= 10:
+            #     new_val = new_val / 10
+            params[w] = new_val
 
 class Trainer(object):
     def __init__(self, model, train_data, test_data,
@@ -92,6 +99,8 @@ class Trainer(object):
 
         print('=============== Final Test Accuracy ===============')
         print(f'test acc: {test_acc}')
+        print(f'avg test acc: {np.average(self.test_acc_list):.2f} ({np.var(self.test_acc_list):.4f})')
+        
 
     def __train_step(self):
         train_batch = sample(self.train_data, self.batch_size)
