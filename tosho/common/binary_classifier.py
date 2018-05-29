@@ -14,11 +14,15 @@ class BinaryClassifier(object):
         score = [self.params[word] for word in x]
         s = sum(score)
         if verbose:
-            print(f'{score} : {sum(s)}')
+            sorted_score = sorted(zip(score, x), key=lambda i: i[0])
+            for item in sorted_score:
+                print(f'{item[1]} -> {item[0]}')
+            print('='*20)
+            print(f'total : {s}')
         if s == 0:
             return 0
         else:
-            return numpy.sign(sum(score))
+            return numpy.sign(s)
     
     def loss(self, x, t):
         y = self.predict(x)

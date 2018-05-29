@@ -43,4 +43,3 @@ if __name__ == '__main__':
             sentence = input()
             x = sentence.replace('.', ' .').replace(',', ' ,').split()
             y = model.predict(x, verbose=True)
-            print(y)
