@@ -5,16 +5,26 @@ from collections import Counter
 from utils.n_gram import interpolate_gen
 
 class Perceptron:
-    def __init__(self, in_dim, out_dim):
-        self._weights = np.zeros((out_dim, in_dim))
+    def __init__(self, in_dim, bias: float = 0, weights = None):
+        in_dim = in_dim + (1 if bias else 0)
+        if weights:
+            if weights.shape[0] != in_dim:
+                TypeError("Loading unmatched weights")
+        else:
+            weights = np.zeros(in_dim)
+        self._bias = bias
+        self._weights = weights
 
     def predict(self, x):
+        if self._bias:
+            b = np.ones((1, x.shape[-1])) * self._bias
+            x = np.concatenate((x, b))
         result = np.matmul(self._weights, x)
-        return np.sign(result).flatten() # why do i have to do this?
+        return x, np.sign(result) #.flatten() # why do i have to do this? because assignment in init
 
     def update(self, x, t):
         #print("x", x)
-        y = self.predict(x)
+        x, y = self.predict(x)
         err_idx = (y != t)
         mis = np.sum(err_idx)
         if mis == 0:
@@ -31,6 +41,10 @@ class Perceptron:
         self._weights += s
         return mis / len(err_idx)
 
+    @property
+    def weights(self):
+        return self._weights
+
 def _vectorize(vocab, inputs, has_oov):
     num_dim = len(vocab)
     num_sen = len(inputs)
@@ -44,11 +58,12 @@ def _vectorize(vocab, inputs, has_oov):
     return vectors
 
 class Wrapper:
-    def __init__(self):
+    def __init__(self, name):
         self._perceptron = None
         self._vocab = set()
         self._labels = []
         self._inputs = []
+        self._name = name
 
     def add_corpus(self, fname):
         with open(fname) as fr:
@@ -59,16 +74,22 @@ class Wrapper:
                 self._inputs.append(Counter(sentence))
                 self._vocab |= set(sentence)
 
-    def seal(self, bias = False):
-        self._vocab = tuple(self._vocab)
-        self._perceptron = Perceptron(len(self._vocab), 1)
-        # temp.shape = temp.shape + (1,)
+    def seal(self, bias):
+        if self._vocab:
+            self._vocab = tuple(self._vocab)
+            self._perceptron = Perceptron(len(self._vocab), bias)
+            # temp.shape = temp.shape + (1,)
+        else:
+            w, self._vocab = self.np.load(self._name + '.npz')
+            self._perceptron = Perceptron(len(self._vocab), bias, w)
 
     def train(self, num_epoch = 30, min_mis = 0.01, batch_size = 1000):
         p = self._perceptron
         inp = interpolate_gen(0.8)
         total = len(self._inputs)
         mis_mu = 1
+        # in order to apply multi-threading, update should return the deltas to
+        # the main thread to sum up (map-reduce) the deltas.
         for i in range(num_epoch):
             t = 0
             while t < total:
@@ -78,6 +99,7 @@ class Wrapper:
                 mis_mu = inp(mis, mis_mu)
                 print("Error rate epoch.%d(%d/%d): %f" % (i, t, total, mis_mu), mis)
                 t += batch_size
+                np.savez(self._name, p.weights, self._vocab)
             if mis_mu < min_mis:
                 break
         print("Train end")
@@ -88,7 +110,7 @@ class Wrapper:
             for line in fr:
                 sentences.append(Counter(line.split()))
         inputs = _vectorize(self._vocab, sentences, True)
-        return self._perceptron.predict(inputs)
+        return self._perceptron.predict(inputs)[1]
 
     def __str__(self):
         s = 'A perceptron wrapper\n'
@@ -97,10 +119,10 @@ class Wrapper:
         return s
 
 if __name__ == '__main__':
-    w = Wrapper()
+    w = Wrapper("data_titles")
     w.add_corpus('../../data/titles-en-train.labeled')
     #w.add_corpus('../../test/03-train-input.txt')
-    w.seal()
+    w.seal(bias = 5)
     print(w)
     w.train()
     res = w.test('../../data/titles-en-test.word')
