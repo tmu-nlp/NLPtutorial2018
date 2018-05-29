@@ -71,12 +71,11 @@ class SimpleOptimizer(object):
             params[w] = new_val
 
 class Trainer(object):
-    def __init__(self, model, train_data, test_data,
+    def __init__(self, model, train_data,
                  epochs=20, mini_batch_size=100,
                  optimizer=SimpleOptimizer()):
         self.model = model
         self.train_data = train_data
-        self.test_data = test_data
         self.epochs = epochs
         self.batch_size = min(mini_batch_size, len(train_data))
         self.train_size = len(train_data)
@@ -89,17 +88,17 @@ class Trainer(object):
         self.current_epoch = 0
 
         self.train_acc_list = []
-        self.test_acc_list = []
+        self.dev_acc_list = []
 
     def train(self):
         for i in range(self.iter_cap):
             self.__train_step()
 
-        test_acc = np.average([self.model.accuracy(x, t) for x, t in self.test_data])
+        train_acc = np.average([self.model.accuracy(x, t) for x, t in self.train_data])
 
-        print('=============== Final Test Accuracy ===============')
-        print(f'test acc: {test_acc}')
-        print(f'avg test acc: {np.average(self.test_acc_list):.2f} ({np.var(self.test_acc_list):.4f})')
+        print('=============== Final Dev Accuracy ===============')
+        print(f'dev acc: {train_acc}')
+        print(f'avg dev acc: {np.average(self.dev_acc_list):.2f} ({np.var(self.dev_acc_list):.4f})')
         
 
     def __train_step(self):
@@ -115,7 +114,7 @@ class Trainer(object):
 
             #TODO: use sampling
             train_sample = sample(self.train_data, self.batch_size)
-            test_sample = sample(self.test_data, min(len(self.test_data), self.batch_size))
+            test_sample = sample(self.train_data, min(len(self.train_data), self.batch_size))
             train_acc = np.average([self.model.accuracy(x, t) for x, t in train_sample])
             test_acc = np.average([self.model.accuracy(x, t) for x, t in test_sample])
 
@@ -123,7 +122,7 @@ class Trainer(object):
             print(f'epoch {self.current_epoch} | train acc: {train_acc} | test acc: {test_acc}')
 
             self.train_acc_list.append(train_acc)
-            self.test_acc_list.append(test_acc)
+            self.dev_acc_list.append(test_acc)
 
         self.current_iter += 1
 
@@ -137,15 +136,15 @@ class Trainer(object):
         plt.title(f'avg: {np.average(self.train_acc_list):.2f} var: {np.var(self.train_acc_list):.4f}')
 
         plt.subplot(2, 2, 2)
-        plt.plot(epochs, self.test_acc_list)
+        plt.plot(epochs, self.dev_acc_list)
         plt.xlabel('epoch')
-        plt.ylabel('test acc')
-        plt.title(f'avg: {np.average(self.test_acc_list):.2f} var: {np.var(self.test_acc_list):.4f}')
+        plt.ylabel('dev acc')
+        plt.title(f'avg: {np.average(self.dev_acc_list):.2f} var: {np.var(self.dev_acc_list):.4f}')
 
         plt.subplot(2, 2, 3)
-        plt.plot(self.train_acc_list, self.test_acc_list)
+        plt.plot(self.train_acc_list, self.dev_acc_list)
         plt.xlabel('train acc')
-        plt.ylabel('test acc')
+        plt.ylabel('dev acc')
 
         fig = plt.gcf()
         plt.show()
