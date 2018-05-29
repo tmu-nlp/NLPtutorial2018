@@ -128,7 +128,25 @@ class Trainer(object):
         self.current_iter += 1
 
     def draw_accuracy(self, file_name='figure.png'):
+        epochs = list(range(1, len(self.train_acc_list)+1))
+
+        plt.subplot(2, 2, 1)
+        plt.plot(epochs, self.train_acc_list)
+        plt.xlabel('epoch')
+        plt.ylabel('train acc')
+        plt.title(f'avg: {np.average(self.train_acc_list):.2f} var: {np.var(self.train_acc_list):.4f}')
+
+        plt.subplot(2, 2, 2)
+        plt.plot(epochs, self.test_acc_list)
+        plt.xlabel('epoch')
+        plt.ylabel('test acc')
+        plt.title(f'avg: {np.average(self.test_acc_list):.2f} var: {np.var(self.test_acc_list):.4f}')
+
+        plt.subplot(2, 2, 3)
         plt.plot(self.train_acc_list, self.test_acc_list)
+        plt.xlabel('train acc')
+        plt.ylabel('test acc')
+
         fig = plt.gcf()
         plt.show()
         plt.draw()
