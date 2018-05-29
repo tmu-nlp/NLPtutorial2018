@@ -1,5 +1,5 @@
 import math
-import numpy
+import numpy as np
 from collections import defaultdict
 from random import sample
 import pickle
@@ -22,7 +22,7 @@ class BinaryClassifier(object):
         if s == 0:
             return 0
         else:
-            return numpy.sign(s)
+            return np.sign(s)
     
     def loss(self, x, t):
         y = self.predict(x)
@@ -88,7 +88,7 @@ class Trainer(object):
         for i in range(self.iter_cap):
             self.__train_step()
 
-        test_acc = numpy.average([self.model.accuracy(x, t) for x, t in self.test_data])
+        test_acc = np.average([self.model.accuracy(x, t) for x, t in self.test_data])
 
         print('=============== Final Test Accuracy ===============')
         print(f'test acc: {test_acc}')
@@ -107,8 +107,8 @@ class Trainer(object):
             #TODO: use sampling
             train_sample = sample(self.train_data, self.batch_size)
             test_sample = sample(self.test_data, min(len(self.test_data), self.batch_size))
-            train_acc = numpy.average([self.model.accuracy(x, t) for x, t in train_sample])
-            test_acc = numpy.average([self.model.accuracy(x, t) for x, t in test_sample])
+            train_acc = np.average([self.model.accuracy(x, t) for x, t in train_sample])
+            test_acc = np.average([self.model.accuracy(x, t) for x, t in test_sample])
 
             # print(f'epoch {self.current_epoch} | train acc: {train_acc}')
             print(f'epoch {self.current_epoch} | train acc: {train_acc} | test acc: {test_acc}')
