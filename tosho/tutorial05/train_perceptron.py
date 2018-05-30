@@ -18,7 +18,6 @@ if __name__ == '__main__':
 
     trainer = Trainer(model, train_data, epochs=40, optimizer=optimizer)
     trainer.train()
+    trainer.draw_accuracy('figure.png')
 
-    trainer.draw_accuracy('model.png')
-
-    model.save_params('figure.pkl')
+    model.save_params('model.pkl')

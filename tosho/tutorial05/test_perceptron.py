@@ -18,7 +18,7 @@ if __name__ == '__main__':
     import numpy as np
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--mode', choices=('test', 'ensemble', 'diagnostic', 'verbose'), default='test')
+    parser.add_argument('-m', '--mode', choices=('test', 'ensemble', 'diag', 'verbose', 'param'), default='test')
     arg = parser.parse_args()
 
     if arg.mode == 'test':
@@ -41,13 +41,13 @@ if __name__ == '__main__':
             y = np.sign(sum(y))
             print(f'{y}\t{" ".join(x)}')
 
-    elif arg.mode == 'diagnostic':
+    elif arg.mode == 'diag':
         from collections import defaultdict
         from random import sample
 
         model = BinaryClassifier()
         model.load_params('model.pkl')
-
+        
         for name, value in sorted(model.params.items(), key=lambda i: -abs(i[1]))[:10]:
             print(f'{name} : {value}')
 
@@ -73,3 +73,11 @@ if __name__ == '__main__':
             sentence = input()
             x = sentence.replace('.', ' .').replace(',', ' ,').split()
             y = model.predict(x, verbose=True)
+    
+    elif arg.mode == 'param':
+        model = BinaryClassifier()
+        model.load_params('model.pkl')
+        while True:
+            p = input()
+            for name, value in filter(lambda item: item[0].startswith(p), model.params.items()):
+                print(f'{name} : {value}')

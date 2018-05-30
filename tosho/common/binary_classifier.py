@@ -22,8 +22,8 @@ class BinaryClassifier(object):
 
         if verbose:
             sorted_score = sorted(zip(score, features.keys()), key=lambda i: i[0])
-            for item in sorted_score:
-                print(f'{item[1]} -> {item[0]}')
+            for value, name in sorted_score:
+                print(f'{name} : {features[name]} * {self.params[name]} = {value}')
             print('='*20)
             print(f'total : {s}')
 
@@ -38,6 +38,7 @@ class BinaryClassifier(object):
         # unigram
         for w in x:
             f['UNI: ' + w] += 1
+        
         for pair in zip(*[x[i:] for i in range(2)]):
             f[f'BI: {pair[0]} {pair[1]}'] += 1
         
