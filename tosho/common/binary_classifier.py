@@ -12,20 +12,36 @@ class BinaryClassifier(object):
         self.perceptron_threshold = 0.1
     
     def predict(self, x, verbose=False):
-        score = [self.params[word] for word in x]
+        features = self.__extract_feature(x)
+
+        score = []
+        for name, value in features.items():
+            score.append(value * self.params[name])
+
         s = sum(score)
 
         if verbose:
-            sorted_score = sorted(zip(score, x), key=lambda i: i[0])
+            sorted_score = sorted(zip(score, features.keys()), key=lambda i: i[0])
             for item in sorted_score:
                 print(f'{item[1]} -> {item[0]}')
             print('='*20)
             print(f'total : {s}')
 
-        if abs(s) < self.perceptron_threshold:
-            return 0
+        # return int(np.sign(s))
+        if s > 0:
+            return 1
         else:
-            return np.sign(s)
+            return -1
+
+    def __extract_feature(self, x):
+        f = defaultdict(int)
+        # unigram
+        for w in x:
+            f['UNI: ' + w] += 1
+        for pair in zip(*[x[i:] for i in range(2)]):
+            f[f'BI: {pair[0]} {pair[1]}'] += 1
+        
+        return f
     
     def loss(self, x, t):
         y = self.predict(x)
@@ -42,13 +58,13 @@ class BinaryClassifier(object):
             return 0
 
     def gradient(self, x, t):
+        features = self.__extract_feature(x)
         l = self.loss(x, t)
 
-        grads = defaultdict(int)
-        for word in x:
-            grads[word] += l
+        for name, value in features.items():
+            features[name] *= l
         
-        return grads
+        return features
 
     def save_params(self, file_name='params.pkl'):
         with open(file_name, 'wb') as f:
@@ -65,10 +81,22 @@ class SimpleOptimizer(object):
     def update(self, params, grads):
         for w, g in grads.items():
             new_val = params[w] + self.lr * g
-            # # 正則化
-            # if abs(new_val) >= 10:
-            #     new_val = new_val / 10
             params[w] = new_val
+
+class NormalizingOptimizer(object):
+    def __init__(self, lr=1, thres=1000):
+        self.lr = lr
+        self.threas=5
+    
+    def update(self, params, grads):
+        for w, g in grads.items():
+            s = abs(g)
+            if s > self.threas:
+                g = self.threas * g / s
+            
+            new_val = params[w] + self.lr * g
+            params[w] = new_val
+
 
 class Trainer(object):
     def __init__(self, model, train_data,
@@ -147,7 +175,7 @@ class Trainer(object):
         plt.ylabel('dev acc')
 
         fig = plt.gcf()
-        plt.show()
+        # plt.show()
         plt.draw()
         fig.savefig(file_name, dpi=100)
 
