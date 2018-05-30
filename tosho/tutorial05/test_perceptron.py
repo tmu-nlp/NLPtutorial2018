@@ -18,7 +18,7 @@ if __name__ == '__main__':
     import numpy as np
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--mode', choices=('test', 'unsemble', 'diagnostic', 'verbose'), default='test')
+    parser.add_argument('-m', '--mode', choices=('test', 'ensemble', 'diagnostic', 'verbose'), default='test')
     arg = parser.parse_args()
 
     if arg.mode == 'test':
@@ -29,7 +29,7 @@ if __name__ == '__main__':
             y = model.predict(x)
             print(f'{y}\t{" ".join(x)}')
     
-    elif arg.mode == 'unsemble':
+    elif arg.mode == 'ensemble':
         def load_model(file_name):
             model = BinaryClassifier()
             model.load_params(file_name)
