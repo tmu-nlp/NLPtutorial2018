@@ -51,23 +51,18 @@ if __name__ == '__main__':
         for name, value in sorted(model.params.items(), key=lambda i: -abs(i[1]))[:10]:
             print(f'{name} : {value}')
 
-        bigram = filter(lambda f: f[0].startswith('BI:'), model.params.items())
-        for name, value in sorted(bigram, key=lambda i: -abs(i[1]))[:10]:
-            print(f'{name} : {value}')
-            
-
-        # mistakes = defaultdict(list)
-        # gold = list(load_labeled_data('../../data/titles-en-test.labeled'))
-        # for i, x in enumerate(load_word_data('../../data/titles-en-test.word')):
-        #     y = model.predict(x)
-        #     t = gold[i][1]
-        #     if y != t:
-        #         mistakes[f'{t} -> {y}'].append(' '.join(x))
+        mistakes = defaultdict(list)
+        gold = list(load_labeled_data('../../data/titles-en-test.labeled'))
+        for i, x in enumerate(load_word_data('../../data/titles-en-test.word')):
+            y = model.predict(x)
+            t = gold[i][1]
+            if y != t:
+                mistakes[f'{t} -> {y}'].append(' '.join(x))
         
-        # for key, sentences in mistakes.items():
-        #     print(f'{key} : {len(sentences)}')
-        #     for line in sample(sentences, min(len(sentences), 20)):
-        #         print(line)
+        for key, sentences in mistakes.items():
+            print(f'{key} : {len(sentences)}')
+            for line in sample(sentences, min(len(sentences), 20)):
+                print(line)
 
     elif arg.mode == 'verbose':
         
