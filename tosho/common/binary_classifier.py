@@ -38,7 +38,7 @@ class BinaryClassifier(object):
         # unigram
         for w in x:
             f['UNI: ' + w] += 1
-        
+        # bigram
         for pair in zip(*[x[i:] for i in range(2)]):
             f[f'BI: {pair[0]} {pair[1]}'] += 1
         
