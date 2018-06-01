@@ -12,20 +12,37 @@ class BinaryClassifier(object):
         self.perceptron_threshold = 0.1
     
     def predict(self, x, verbose=False):
-        score = [self.params[word] for word in x]
+        features = self.__extract_feature(x)
+
+        score = []
+        for name, value in features.items():
+            score.append(value * self.params[name])
+
         s = sum(score)
 
         if verbose:
-            sorted_score = sorted(zip(score, x), key=lambda i: i[0])
-            for item in sorted_score:
-                print(f'{item[1]} -> {item[0]}')
+            sorted_score = sorted(zip(score, features.keys()), key=lambda i: i[0])
+            for value, name in sorted_score:
+                print(f'{name} : {features[name]} * {self.params[name]} = {value}')
             print('='*20)
             print(f'total : {s}')
 
-        if abs(s) < self.perceptron_threshold:
-            return 0
+        # return int(np.sign(s))
+        if s > 0:
+            return 1
         else:
-            return np.sign(s)
+            return -1
+
+    def __extract_feature(self, x):
+        f = defaultdict(int)
+        # unigram
+        for w in x:
+            f['UNI: ' + w] += 1
+        # bigram
+        for pair in zip(*[x[i:] for i in range(2)]):
+            f[f'BI: {pair[0]} {pair[1]}'] += 1
+        
+        return f
     
     def loss(self, x, t):
         y = self.predict(x)
@@ -42,13 +59,13 @@ class BinaryClassifier(object):
             return 0
 
     def gradient(self, x, t):
+        features = self.__extract_feature(x)
         l = self.loss(x, t)
 
-        grads = defaultdict(int)
-        for word in x:
-            grads[word] += l
+        for name, value in features.items():
+            features[name] *= l
         
-        return grads
+        return features
 
     def save_params(self, file_name='params.pkl'):
         with open(file_name, 'wb') as f:
@@ -65,34 +82,40 @@ class SimpleOptimizer(object):
     def update(self, params, grads):
         for w, g in grads.items():
             new_val = params[w] + self.lr * g
-            # # 正則化
-            # if abs(new_val) >= 10:
-            #     new_val = new_val / 10
             params[w] = new_val
 
+class NormalizingOptimizer(object):
+    def __init__(self, lr=1, thres=1000):
+        self.lr = lr
+        self.threas=5
+    
+    def update(self, params, grads):
+        for w, g in grads.items():
+            s = abs(g)
+            if s > self.threas:
+                g = self.threas * g / s
+            
+            new_val = params[w] + self.lr * g
+            params[w] = new_val
+
+
 class Trainer(object):
-    def __init__(self, model, train_data,
-                 epochs=20, mini_batch_size=100,
+    def __init__(self, model, train_data, epochs=20,
                  optimizer=SimpleOptimizer()):
         self.model = model
         self.train_data = train_data
         self.epochs = epochs
-        self.batch_size = min(mini_batch_size, len(train_data))
         self.train_size = len(train_data)
-        self.iter_per_epoch = max(self.train_size // self.batch_size, 1)
-        self.iter_cap = int(self.epochs * self.iter_per_epoch)
+        self.batch_size = self.train_size // self.epochs
 
         self.optimizer = optimizer
-
-        self.current_iter = 0
-        self.current_epoch = 0
 
         self.train_acc_list = []
         self.dev_acc_list = []
 
     def train(self):
-        for i in range(self.iter_cap):
-            self.__train_step()
+        for epoch in range(1, self.epochs + 1):
+            self.__train_step(epoch)
 
         train_acc = np.average([self.model.accuracy(x, t) for x, t in self.train_data])
 
@@ -101,30 +124,23 @@ class Trainer(object):
         print(f'avg dev acc: {np.average(self.dev_acc_list):.2f} ({np.var(self.dev_acc_list):.4f})')
         
 
-    def __train_step(self):
-        train_batch = sample(self.train_data, self.batch_size)
+    def __train_step(self, epoch):
+        dev_batch = self.train_data[(epoch - 1)*self.batch_size:epoch*self.batch_size]
+        train_batch = self.train_data[:(epoch - 1)*self.batch_size] + self.train_data[epoch*self.batch_size:]
 
         # on-line learning
         for x, t in train_batch:
             grad = self.model.gradient(x, t)
             self.optimizer.update(self.model.params, grad)
         
-        if self.current_iter % self.iter_per_epoch == 0:
-            self.current_epoch += 1
+        train_acc = np.average([self.model.accuracy(x, t) for x, t in train_batch])
+        dev_acc = np.average([self.model.accuracy(x, t) for x, t in dev_batch])
 
-            #TODO: use sampling
-            train_sample = sample(self.train_data, self.batch_size)
-            test_sample = sample(self.train_data, min(len(self.train_data), self.batch_size))
-            train_acc = np.average([self.model.accuracy(x, t) for x, t in train_sample])
-            test_acc = np.average([self.model.accuracy(x, t) for x, t in test_sample])
+        print(f'epoch {epoch} | train acc: {train_acc} | dev acc: {dev_acc}')
 
-            # print(f'epoch {self.current_epoch} | train acc: {train_acc}')
-            print(f'epoch {self.current_epoch} | train acc: {train_acc} | test acc: {test_acc}')
+        self.train_acc_list.append(train_acc)
+        self.dev_acc_list.append(dev_acc)
 
-            self.train_acc_list.append(train_acc)
-            self.dev_acc_list.append(test_acc)
-
-        self.current_iter += 1
 
     def draw_accuracy(self, file_name='figure.png'):
         epochs = list(range(1, len(self.train_acc_list)+1))
@@ -147,7 +163,6 @@ class Trainer(object):
         plt.ylabel('dev acc')
 
         fig = plt.gcf()
-        plt.show()
         plt.draw()
         fig.savefig(file_name, dpi=100)
 
@@ -160,7 +175,7 @@ if __name__ == '__main__':
 
     train_data = list(load_labeled_data('../../test/03-train-input.txt'))
     test_data = list(load_word_data('../../test/03-train-answer.txt'))
-    trainer = Trainer(model, train_data, test_data, mini_batch_size=1)
+    trainer = Trainer(model, train_data, test_data)
 
     trainer.train()
     model.save_params('test.pkl')
