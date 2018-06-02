@@ -7,6 +7,7 @@ from multiprocessing import Pool
 from utils.n_gram import interpolate_gen, n_gram
 from functools import partial
 from random import shuffle
+from stemming.porter2 import stem
 open = partial(open, encoding='UTF-8')
 
 class Perceptron:
@@ -99,7 +100,7 @@ class Trainer:
             w, self._features = self.np.load(self._name + '.npz')
             self._perceptron = Perceptron(len(self._features), w)
 
-    def train(self, num_epoch = 30, stop_loss = 0.1, batch_size = 100, mp = 8, train_set_ratio = 0.9):
+    def train(self, num_epoch = 30, stop_loss = 0.03, batch_size = 100, mp = 8, train_set_ratio = 0.9):
         p = self._perceptron
         interpolate = interpolate_gen(0.9)
         total = len(self._inputs)
@@ -163,7 +164,10 @@ class Trainer:
         with open(fname, 'w') as fw:
             fw.write('tok,weight\n')
             for tok, pos in self._features.items():
-                fw.write(f'{tok},{self._perceptron.weights[pos]}\n')
+                if isinstance(tok, tuple):
+                    fw.write(' '.join(tok) + f',{self._perceptron.weights[pos]}\n')
+                else:
+                    fw.write(f'{tok},{self._perceptron.weights[pos]}\n')
             if self._bias:
                 fw.write(f'#BIAS#,{self._perceptron.weights[len(self._features)]}')
 
@@ -182,8 +186,13 @@ class Trainer:
         s += '\tCorpus size: %d\n' % len(self._inputs)
         return s
 
+def _split(x):
+    x = x.strip().split()
+    x = tuple(map(stem, x))
+    return Counter(x) + Counter(n_gram(2, x))
+
 if __name__ == '__main__':
-    w = Trainer("data_titles")
+    w = Trainer("data_titles", _split)
     w.add_corpus('../../data/titles-en-train.labeled')
     #w.add_corpus('../../test/03-train-input.txt')
     w.seal(bias = 5)
