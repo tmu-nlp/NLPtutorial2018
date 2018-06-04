@@ -2,6 +2,33 @@ import sys
 from collections import defaultdict
 import random
 
+def load_labeled_data(file_name, lowercasing=True):
+    if lowercasing:
+        decorator = lambda w: w.lower()
+    else:
+        decorator = lambda w: w
+    with open(file_name, 'r') as f:
+        for line in f:
+            line = line.strip('\n')
+            t, x = line.split('\t')
+            x = [decorator(word) for word in x.split(' ')]
+            yield (x, int(t))
+
+def load_word_data(file_name, lowercasing=True, bos=False, eos=False):
+    if lowercasing:
+        decorator = lambda w: w.lower()
+    else:
+        decorator = lambda w: w
+    with open(file_name, 'r') as f:
+        for line in f:
+            line = line.strip('\n')
+            x = [decorator(word) for word in line.split(' ')]
+            if bos:
+                x.insert(0,'<s>')
+            if eos:
+                x.append('</s>')
+            yield x
+
 def count_tokens(tokens):
     counts = defaultdict(int)
     for token in tokens:
