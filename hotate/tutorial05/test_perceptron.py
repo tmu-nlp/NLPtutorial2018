@@ -33,12 +33,12 @@ if __name__ == '__main__':
             print(line, file=f)
 
 # python grade-prediction.py data/titles-en-test.labeled ../hotate/tutorial05/my_answer
-# Accuracy = 93.942614% l = 20, n = 1
+# Accuracy = 93.942614% epoch = 20, n = 1
 
-# Accuracy = 94.190577% l = 30, n = 2
-# Accuracy = 94.261424% l = 40, n = 2
-# Accuracy = 94.544810% l = 40, n = 2 (remove_symbol)
-# Accuracy = 94.261424% l = 50, n = 2
+# Accuracy = 94.190577% epoch = 30, n = 2
+# Accuracy = 94.261424% epoch = 40, n = 2
+# Accuracy = 94.544810% epoch = 40, n = 2 (remove_symbol)
 
-# Accuracy = 94.048884% l = 20, n = 3
-# Accuracy = 94.261424% l = 30, n = 3
+
+# Accuracy = 94.048884% epoch = 20, n = 3
+# Accuracy = 94.261424% epoch = 30, n = 3

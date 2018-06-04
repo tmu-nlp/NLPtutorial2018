@@ -6,8 +6,8 @@ import re
 
 def learn_weight(path, n):
     w = defaultdict(int)
-    loop = 40
-    for i in range(loop):
+    epoch = 40
+    for i in range(epoch):
         for line in open(path, 'r'):
             phi = defaultdict(lambda: 0)
             ans = int(line.split('\t')[0])
