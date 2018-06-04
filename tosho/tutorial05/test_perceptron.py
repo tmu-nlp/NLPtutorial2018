@@ -1,6 +1,12 @@
 # python test_perceptron.py > ans.labeled
-# python test_perceptron.py > anx.labeled
 # ../../script/grade-prediction.py ../../data/titles-en-test.labeled ans.labeled
+# ../../script/grade-prediction.py ../../data/titles-en-test.labeled ans_unsemble.labeled
+
+''' 
+python train_perceptron.py
+python test_perceptron.py > ans.labeled
+../../script/grade-prediction.py ../../data/titles-en-test.labeled ans.labeled
+'''
 
 if __name__ == '__main__':
     import sys, os
@@ -12,7 +18,7 @@ if __name__ == '__main__':
     import numpy as np
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--mode', choices=('test', 'unsemble', 'diagnostic', 'verbose'), default='test')
+    parser.add_argument('-m', '--mode', choices=('test', 'ensemble', 'diag', 'verbose', 'param'), default='test')
     arg = parser.parse_args()
 
     if arg.mode == 'test':
@@ -23,7 +29,7 @@ if __name__ == '__main__':
             y = model.predict(x)
             print(f'{y}\t{" ".join(x)}')
     
-    elif arg.mode == 'unsemble':
+    elif arg.mode == 'ensemble':
         def load_model(file_name):
             model = BinaryClassifier()
             model.load_params(file_name)
@@ -35,12 +41,15 @@ if __name__ == '__main__':
             y = np.sign(sum(y))
             print(f'{y}\t{" ".join(x)}')
 
-    elif arg.mode == 'diagnostic':
+    elif arg.mode == 'diag':
         from collections import defaultdict
         from random import sample
 
         model = BinaryClassifier()
         model.load_params('model.pkl')
+        
+        for name, value in sorted(model.params.items(), key=lambda i: -abs(i[1]))[:10]:
+            print(f'{name} : {value}')
 
         mistakes = defaultdict(list)
         gold = list(load_labeled_data('../../data/titles-en-test.labeled'))
@@ -64,3 +73,11 @@ if __name__ == '__main__':
             sentence = input()
             x = sentence.replace('.', ' .').replace(',', ' ,').split()
             y = model.predict(x, verbose=True)
+    
+    elif arg.mode == 'param':
+        model = BinaryClassifier()
+        model.load_params('model.pkl')
+        while True:
+            p = input()
+            for name, value in filter(lambda item: item[0].startswith(p), model.params.items()):
+                print(f'{name} : {value}')
