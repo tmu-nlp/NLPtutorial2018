@@ -221,7 +221,7 @@ class Trainer:
 def _split(x):
     x = x.strip().split()
     x = tuple(map(stem, x))
-    return Counter(x) + Counter(' '.join(ng) for ng in n_gram(2, x))
+    return Counter(x)# + Counter(' '.join(ng) for ng in n_gram(2, x))
 
 
 if __name__ == '__main__':
