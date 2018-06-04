@@ -35,13 +35,13 @@ if __name__=="__main__":
 			y=spl[0]
 
 	
-		phi=create_features(x)
-		y2=predict_one(w,phi)
-		if y2 != y:
-			update_weights(w,phi,y)
+			phi=create_features(x)
+			y2=predict_one(w,phi)
+			if y2 != y:
+				update_weights(w,phi,y)
 
 	with open('model','w') as model:
-		for name, weight in sorted(w.items()):
+		for name, weight in w.items():
 			model.write(f'{name}\t{weight}\n')
 
 	
