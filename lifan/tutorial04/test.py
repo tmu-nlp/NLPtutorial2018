@@ -12,6 +12,7 @@ V = 1000000
 def sp(a,b):
 	return f"{a} {b}"
 
+# モデルの読み取り
 with open(sys.argv[1], 'r') as model_file:
 	for line in model_file:
 		line = line.strip()
@@ -31,6 +32,7 @@ with open(sys.argv[2], 'r') as input_file, open("output.txt", 'w') as output_fil
 		line = line.strip()
 		words = line.split(" ")
 		l = len(words)
+		# 前向き
 		best_score = defaultdict(float)
 		best_edge = defaultdict(int)
 		best_score["0 <s>"] = 0
@@ -52,17 +54,28 @@ with open(sys.argv[2], 'r') as input_file, open("output.txt", 'w') as output_fil
 					if sp(l+1, "</s>") not in best_score or (score <= best_score[sp(l+1, "</s>")]):
 						best_score[sp(l+1, "</s>")] = score
 						best_edge[sp(l+1, "</s>")] = sp(l, tag)
-
+		# 後ろ向き
 		tags = []
 		next_edge = best_edge[sp(l+1, "</s>")]
-
 		while next_edge != "0 <s>":
 			position = next_edge.split(" ")[0]
 			tag = next_edge.split(" ")[1]
 			tags.append(tag)
 			next_edge = best_edge[next_edge]
 		tags.reverse()
+		print(" ".join(tags), file=output_file)
 
-		print("".join(tags), file=output_file)
 
+# Accuracy: 90.82% (4144/4563)
 
+# Most common mistakes:
+# NNS --> NN	45
+# NN --> JJ	27
+# NNP --> NN	22
+# JJ --> DT	22
+# VBN --> NN	12
+# JJ --> NN	12
+# NN --> IN	11
+# NN --> DT	10
+# NNP --> JJ	8
+# VBN --> JJ	7
