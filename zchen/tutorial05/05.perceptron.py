@@ -177,9 +177,9 @@ class Trainer:
             proficiency_idx = np.argsort(perceptron.convergency)
             id2feats = {pos:feat for feat, pos in feat2id.items()}
             for tok, idx in feat2id.items():
-                convergency_info += f'{epoch},"{tok}",{perceptron.weights[idx]},{perceptron.convergency[idx]}\n'
+                convergency_info += f'{epoch},"{tok}",%f,%f\n' % (perceptron.weights[idx], perceptron.convergency[idx])
             if bias:
-                convergency_info += f'{epoch},#BIAS{bias}#,{perceptron.weights[n]},{perceptron.convergency[n]}\n'
+                convergency_info += f'{epoch},#BIAS{bias}#,%f,%f\n' % (perceptron.weights[n], perceptron.convergency[n])
             selected_idx = np.where(np.logical_and(perceptron.convergency < 15, perceptron.weights != 0))[0]
             r = len(selected_features) - len(selected_idx)
             if r / n > decrease_threshold:
