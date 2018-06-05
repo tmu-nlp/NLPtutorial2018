@@ -87,22 +87,33 @@ class BinaryClassifier(object):
             self.params = pickle.load(f)
 
 class SimpleOptimizer(object):
-    def __init__(self, lr=0.1, thres=0.00001):
+    def __init__(self, lr=0.1, thres=0.0001):
         self.lr = lr
         self.thres = thres
+
+        self.current_iter = 0
+        self.V = defaultdict(int)   # version of weights
     
     def update(self, params, grads):
-        for w, g in grads.items():
-            current_value = params[w]
-            if abs(current_value) > self.thres:
-                params[w] -= np.sign(current_value) * self.thres
-            else:
-                params[w] = 0
-            params[w] += g
+        for name, grad in grads.items():
+            current_value = params[name]
+
+            # update weight by L1 norm
+            if self.V[name] != self.current_iter:
+                norm = self.thres * (self.current_iter - self.V[name])
+                if abs(current_value) > norm:
+                    current_value -= np.sign(current_value) * norm
+                else:
+                    current_value = 0
+                self.V[name] = self.current_iter
+            
+            params[name] = current_value + grad
+
+        self.current_iter += 1
 
 class Trainer(object):
     def __init__(self, model, train_data, epochs=20,
-                 optimizer=SimpleOptimizer(), margin_thres=20):
+                 optimizer=SimpleOptimizer(), margin_thres=15):
         self.model = model
         self.train_data = train_data
         self.epochs = epochs

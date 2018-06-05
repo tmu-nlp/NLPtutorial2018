@@ -15,7 +15,7 @@ if __name__ == '__main__':
     
     print(f'train data: {len(train_data)}')
 
-    trainer = Trainer(model, train_data, epochs=40, optimizer=optimizer)
+    trainer = Trainer(model, train_data, epochs=40, optimizer=optimizer, margin_thres=10)
     trainer.train()
 
     model.save_params('model.pkl')
