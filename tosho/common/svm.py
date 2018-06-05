@@ -61,23 +61,22 @@ class BinaryClassifier(object):
         else:
             return 0
 
-    def gradient(self, x, t):
+    def loss_margin_with_gradient(self, x, t):
         features = self.__extract_feature(x)
         l = self.loss(x, t)
 
+        # gradient
         score = []
         for name, value in features.items():
-            # print(f'***** feature[{name}] = {value} * {self.params[name]}')
             score.append(value * self.params[name])
-
         dW = d_sigmoid(sum(score))
-
-        # print(f'***** dW = {dW}')
-
         for name, value in features.items():
-            features[name] = l * value * dW
+            features[name] = t * value * dW
         
-        return features
+        # margin
+        m = sum(score) * t
+
+        return l, m, features
 
     def save_params(self, file_name='params.pkl'):
         with open(file_name, 'wb') as f:
@@ -88,7 +87,7 @@ class BinaryClassifier(object):
             self.params = pickle.load(f)
 
 class SimpleOptimizer(object):
-    def __init__(self, lr=0.1, thres=0.1):
+    def __init__(self, lr=0.1, thres=0.00001):
         self.lr = lr
         self.thres = thres
     
@@ -103,7 +102,7 @@ class SimpleOptimizer(object):
 
 class Trainer(object):
     def __init__(self, model, train_data, epochs=20,
-                 optimizer=SimpleOptimizer()):
+                 optimizer=SimpleOptimizer(), margin_thres=20):
         self.model = model
         self.train_data = train_data
         self.epochs = epochs
@@ -111,6 +110,7 @@ class Trainer(object):
         self.batch_size = self.train_size // self.epochs
 
         self.optimizer = optimizer
+        self.margin_thres = margin_thres
 
         self.train_acc_list = []
         self.dev_acc_list = []
@@ -131,14 +131,18 @@ class Trainer(object):
         train_batch = self.train_data[:(epoch - 1)*self.batch_size] + self.train_data[epoch*self.batch_size:]
 
         # on-line learning
+        test_margin_list = []
         for x, t in train_batch:
-            grad = self.model.gradient(x, t)
-            self.optimizer.update(self.model.params, grad)
+            l, m, grad = self.model.loss_margin_with_gradient(x, t)
+            test_margin_list.append(m)
+            if l != 0 or m < self.margin_thres:
+                self.optimizer.update(self.model.params, grad)
         
         train_acc = np.average([self.model.accuracy(x, t) for x, t in train_batch])
         dev_acc = np.average([self.model.accuracy(x, t) for x, t in dev_batch])
+        test_margin = np.average(test_margin_list)
 
-        print(f'epoch {epoch} | train acc: {train_acc:.2f} | dev acc: {dev_acc:.2f}')
+        print(f'epoch {epoch} | train acc: {train_acc:.2f} | dev acc: {dev_acc:.2f} | test margin: {test_margin:.2f}')
 
         self.train_acc_list.append(train_acc)
         self.dev_acc_list.append(dev_acc)
