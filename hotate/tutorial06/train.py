@@ -17,9 +17,9 @@ def sigmoid_derivative(x):
 
 def learn_weight(path, n):
     w = defaultdict(float)
-    margin = 5
+    margin = 30
     c = 0.0001
-    epoch = 30
+    epoch = 10
     for i in range(epoch):
         last = defaultdict(lambda: 0)
         for i, line in enumerate(open(path, 'r')):
@@ -56,10 +56,11 @@ def create_features(sentence, n, phi):
 
 def update_weights(w, phi, ans):
     for n_gram, count in phi.items():
-        if ans == 1:
-            w[n_gram] += count * sigmoid_derivative(w[n_gram] * count)
-        elif ans == -1:
-            w[n_gram] -= count * sigmoid_derivative(w[n_gram] * count)
+        w[n_gram] += count * ans
+        # if ans == 1:
+        #     w[n_gram] += count * sigmoid_derivative(w[n_gram] * count)
+        # elif ans == -1:
+        #     w[n_gram] -= count * sigmoid_derivative(w[n_gram] * count)
 
 
 def getw(w, n_gram, c, iter_, last):
