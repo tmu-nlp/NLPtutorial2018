@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from collections import defaultdict
-from train_perceptron import create_features, predict_one
+from train import create_features, predict_one
 
 
 def load_model(model_file):
@@ -10,7 +10,7 @@ def load_model(model_file):
         line = line.split('\t')
         n_gram = line[0]
         weight = line[1].strip('\n')
-        w[n_gram] = int(weight)
+        w[n_gram] = float(weight)
     return w
 
 
@@ -32,13 +32,7 @@ if __name__ == '__main__':
         for line in result:
             print(line, file=f)
 
-# python grade-prediction.py data/titles-en-test.labeled ../hotate/tutorial05/my_answer
-# Accuracy = 93.942614% epoch = 20, n = 1
-
-# Accuracy = 94.190577% epoch = 30, n = 2
-# Accuracy = 94.261424% epoch = 40, n = 2
-# Accuracy = 94.544810% epoch = 40, n = 2 (remove_symbol)
+# python grade-prediction.py data/titles-en-test.labeled ../hotate/tutorial06/my_answer
 
 
-# Accuracy = 94.048884% epoch = 20, n = 3
-# Accuracy = 94.261424% epoch = 30, n = 3
+# Accuracy = 94.544810% epoch = 10, n = 2
