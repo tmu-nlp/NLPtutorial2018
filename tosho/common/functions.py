@@ -2,12 +2,18 @@ import math
 import numpy as np
 
 def softmax(x):
-    c = np.max(x)
-    exp_a = np.exp(x - c) # avoid overflow
-    sum_exp_a = np.sum(exp_a)
-    y = exp_a / sum_exp_a
+    if x.ndim == 1:
+        x = x - np.max(x)
+        x = np.exp(x)
+        x /= np.sum(x)
+    elif x.ndim == 2:
+        # バッチ処理
+        # 各データ(axis=1)内で最大値を取得して、他のデータから減算する.
+        x = x - x.max(axis=1, keepdims=True)
+        x = np.exp(x)
+        x /= x.sum(axis=1, keepdims=True)
 
-    return y
+    return x
 
 def cross_entropy_error(y, t):
     if y.ndim == 1:
@@ -21,9 +27,9 @@ def cross_entropy_error(y, t):
     delta = 1e-7
 
     # yの各ベクトルについて、正解ラベルのインデックスにある要素を取り出す
-    biggests_in_y = y[np.arange(batch_size), t]
+    a = y[np.arange(batch_size), t]
 
-    return -1 * np.sum(np.log(biggests_in_y + delta)) / batch_size
+    return -1 * np.sum(np.log(a + delta)) / batch_size
 
 def sigmoid(x):
     exp = math.exp(x)

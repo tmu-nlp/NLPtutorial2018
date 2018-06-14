@@ -1,28 +1,25 @@
-XOR = [
-    ([0, 0], [0]),
-    ([1, 0], [1]),
-    ([0, 1], [1]),
-    ([1, 1], [0])
-]
-
-DATA = {
-    'XOR': XOR
-}
-
-from random import sample
+from random import random
 import numpy as np
+
+PREDICATOR ={
+    'AND': lambda a, b: 1 if a>0 and b>0 else 0,
+    'OR':  lambda a, b: 0 if a<0 and b<0 else 1,
+    'XOR': lambda a, b: 0 if a*b>0 else 1
+}
 
 def load_data(operant='XOR', data_size=1000):
     '''
     論理回路の学習データを出力する
     '''
-    seed_data = DATA[operant]
+    pred = PREDICATOR[operant]
 
     X, T = [], []
     for _ in range(data_size):
-        x, t = sample(seed_data, 1)[0]
+        x = random() * 2 - 1
+        y = random() * 2 - 1
+        t = pred(x, y)
         
-        X.append(x)
+        X.append([x, y])
         T.append(t)
     
     return np.array(X), np.array(T)

@@ -76,10 +76,10 @@ class SoftmaxLayer:
     '''
     def __init__(self):
         self.params, self.grads = [], []
+        self.t = None
         self.y = None
-        self.o = None
     
-    def forward(self, x, y):
+    def forward(self, x, t):
         '''
         This function will perform softmax on x and 
         return the loss of its result compared with y
@@ -91,10 +91,10 @@ class SoftmaxLayer:
         Return:
             float: result of cross_entropy_error
         '''
-        self.y = y
-        self.o = softmax(x)
+        self.t = t
+        self.y = softmax(x)
         
-        loss = cross_entropy_error(self.o, self.y)
+        loss = cross_entropy_error(self.y, self.t)
         return loss
 
     def backward(self, dout):
@@ -102,10 +102,10 @@ class SoftmaxLayer:
         Args:
             dout (float)
         '''
-        batch_size = self.y.shape[0]
+        batch_size = self.t.shape[0]
 
-        dx = self.o.copy()
-        dx[np.arange(batch_size), self.y] -= 1
+        dx = self.y.copy()
+        dx[np.arange(batch_size), self.t] -= 1
         dx *= dout
         dx = dx / batch_size
         
