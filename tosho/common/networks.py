@@ -40,13 +40,12 @@ class Trainer:
         model, optimizer = self.model, self.optimizer
         
         for epoch in range(max_epoch):
-            print(f'epoch #{epoch}', end='')
-
             rand_idx = np.random.permutation(np.arange(data_size))
             x, y = x[rand_idx], y[rand_idx]
             loss_list = []
+            max_iters = data_size // batch_size
 
-            for i in range(data_size // batch_size):
+            for i in range(max_iters):
                 batch_x = x[i * batch_size : (i + 1) * batch_size]
                 batch_y = y[i * batch_size : (i + 1) * batch_size]
 
@@ -56,8 +55,10 @@ class Trainer:
 
                 params, grads = self.merge_dups(model.params, model.grads)
                 optimizer.update(params, grads)
+
+                print(f'epoch #{epoch+1} | {i+1}/{max_iters} | loss = {loss}')
             
-            print(f' | loss = {sum(loss_list)/len(loss_list)}')
+            print(f'epoch #{epoch+1} | loss = {sum(loss_list)/len(loss_list)}')
     
     def merge_dups(self, params, grads):
         params, grads = params[:], grads[:]
