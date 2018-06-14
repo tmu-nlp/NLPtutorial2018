@@ -86,12 +86,12 @@ class SimpleNeuralNetwork:
 
         W1 = 0.01 * np.random.randn(I, H)
         b1 = np.zeros(H)
-        W2 = 0.01 * np.random.randn(H, O)
-        b2 = np.zeros(O)
+        W2 = 0.01 * np.random.randn(H, H)
+        b2 = np.zeros(H)
 
         self.layers = [
             AffineLayer(W1, b1),
-            SigmoidLayer(),
+            TanhLayer(),
             AffineLayer(W2, b2)
         ]
         self.last_layer = SoftmaxLayer()
@@ -142,15 +142,18 @@ class SimpleNeuralNetwork:
 if __name__ == '__main__':
     from dataset import logic_circuit
 
-    x_train, t_train = logic_circuit.load_data(operant='OR', data_size=50000)
+    x_train, t_train = logic_circuit.load_data(operant='AND', data_size=50000)
     print(x_train.shape)
     print(t_train.shape)
 
-    model = SimpleNeuralNetwork(x_train.shape[1], 3, 2)
-    optimizer = SGD()
+    model = SimpleNeuralNetwork(x_train.shape[1], 2, 2)
+    optimizer = SGD(0.1)
     
     trainer = Trainer(model, optimizer)
 
     print(f'Initial | ACC: {model.accuracy(x_train, t_train)}')
+    # for p in model.params: print(p)
+
     trainer.train(x_train, t_train, max_epoch=20, batch_size=100)
     print(f'Trained | ACC: {model.accuracy(x_train, t_train)}')
+    # for p in model.params: print(p)

@@ -111,6 +111,25 @@ class SoftmaxLayer:
         
         return dx
 
+class TanhLayer:
+    '''
+    tanh関数を作用させるレイヤー
+    '''
+    def __init__(self):
+        self.params, self.grads = [], []
+        self.out = None
+    
+    def forward(self, x):
+        out = np.tanh(x)
+        self.out = out
+
+        return out
+    
+    def backward(self, dout):
+        dx = dout * (1 - self.out**2)
+        return dx
+
+
 if __name__ == '__main__':
     x = np.random.randn(1, 5)
 
