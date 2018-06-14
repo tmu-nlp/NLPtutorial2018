@@ -6,6 +6,6 @@ def load_labeled(file_name='../../data/titles-en-train.labeled'):
     X, T = [], []
     for x, t in load_labeled_data(file_name):
         X.append(x)
-        T.append([t])
+        T.append(t)
     
     return X, T

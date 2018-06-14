@@ -2,6 +2,7 @@ import sys, os
 sys.path.append(os.pardir)
 from common.layers import *
 from random import randint
+import pickle
 
 class SGD:
     '''
@@ -44,6 +45,7 @@ class Trainer:
             x, y = x[rand_idx], y[rand_idx]
             loss_list = []
             max_iters = data_size // batch_size
+            eval_interval = max_iters // 10
 
             for i in range(max_iters):
                 batch_x = x[i * batch_size : (i + 1) * batch_size]
@@ -56,7 +58,8 @@ class Trainer:
                 params, grads = self.merge_dups(model.params, model.grads)
                 optimizer.update(params, grads)
 
-                print(f'epoch #{epoch+1} | {i+1}/{max_iters} | loss = {loss}')
+                if i % eval_interval == 0:
+                    print(f'epoch #{epoch+1} | {i+1}/{max_iters} | loss = {loss}')
             
             print(f'epoch #{epoch+1} | loss = {sum(loss_list)/len(loss_list)}')
     
@@ -87,8 +90,8 @@ class SimpleNeuralNetwork:
 
         W1 = 0.01 * np.random.randn(I, H)
         b1 = np.zeros(H)
-        W2 = 0.01 * np.random.randn(H, H)
-        b2 = np.zeros(H)
+        W2 = 0.01 * np.random.randn(H, O)
+        b2 = np.zeros(O)
 
         self.layers = [
             AffineLayer(W1, b1),
@@ -101,6 +104,15 @@ class SimpleNeuralNetwork:
         for layer in self.layers:
             self.params += layer.params
             self.grads += layer.grads
+
+    # def save_params(self, file_name='model.pkl'):
+    #     with open(file_name, 'wb') as f:
+    #         pickle.dump(self.params, f)
+
+    # def load_params(self, file_name='model.pkl'):
+    #     with open(file_name, 'rb') as f:
+    #         params = pickle.load(f)
+        
 
     def predict(self, x):
         '''
