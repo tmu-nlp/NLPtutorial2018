@@ -7,7 +7,7 @@ from collections import defaultdict
 from itertools import islice
 import pickle
 
-class FeatureExtractor:
+class FeatureModel:
     def __init__(self, feature_size, mode='train'):
         self.idx = defaultdict(self.new_id)
         self.feature_size = feature_size
@@ -35,11 +35,11 @@ class FeatureExtractor:
         #     features[self.idx[f'BI: {token[0]} {token[1]}']] += 1
         
         return features
-        
+
 
 def main():
     pkl_file = 'titles-en-train.labeled.pkl'
-    data_file = '../../data/titles-en-train.labeled'
+    fm_pkl_file = 'titles-en-train.labeled.fm.pkl'
 
     if os.path.isfile(pkl_file):
         print('load train data from pkl file ... ', end='')
@@ -47,8 +47,8 @@ def main():
             x_train, t_train = pickle.load(f)
     else:
         print('load train data from source file ... ', end='')
-        x_train, t_train = titles_en_train.load_labeled(data_file)
-        extractor = FeatureExtractor(feature_size=25000)
+        x_train, t_train = titles_en_train.load_labeled()
+        extractor = FeatureModel(feature_size=25000)
         for i, x in enumerate(x_train):
             x_train[i] = extractor.extract(x)
         for i, t in enumerate(t_train):
@@ -56,6 +56,8 @@ def main():
 
         with open(pkl_file, 'wb') as f:
             pickle.dump((x_train, t_train), f)
+        with open(fm_pkl_file, 'wb') as f:
+            pickle.dump(extractor.idx, f)
 
     x_train, t_train = np.array(x_train[:-1000]), np.array(t_train[:-1000])
     x_test, t_test = np.array(x_train[-1000:]), np.array(t_train[-1000:])
@@ -63,7 +65,7 @@ def main():
     print(x_train.shape)
     print(t_train.shape)
 
-    model = SimpleNeuralNetwork(x_train.shape[1], 256, 2)
+    model = SimpleNeuralNetwork(x_train.shape[1], 64, 2)
     optimizer = SGD(0.1)
     trainer = Trainer(model, optimizer)
 
