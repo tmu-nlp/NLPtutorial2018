@@ -14,7 +14,7 @@ class SigmoidLayer:
     def forward(self, x):
         '''
         Args:
-            x (numpy.array) : size of (batch_size, dimension).
+            x (numpy.array): size of (batch_size, input_size).
         '''
         out = 1 / (1 + np.exp(-x))
         self.out = out
@@ -22,6 +22,10 @@ class SigmoidLayer:
         return out
 
     def backward(self, dout):
+        '''
+        Args:
+            dout (numpy.array): size of (batch_size, input_size).
+        '''
         dx = dout * (1.0 - self.out) * self.out
 
         return dx
@@ -31,6 +35,11 @@ class AffineLayer:
      線形変換を行うレイヤー
     '''
     def __init__(self, W, b):
+        '''
+        Args:
+            W (numpy.array): size of (input_size, output_size)
+            b (numpy.array): size of (output_size)
+        '''
         self.params = [W, b]
         self.grads = [np.zeros_like(W), np.zeros_like(b)]
         self.x = None   # for calculating grad
@@ -38,7 +47,7 @@ class AffineLayer:
     def forward(self, x):
         '''
         Args:
-            x (numpy.array) : size of (batch_size, dimension).
+            x (numpy.array): size of (batch_size, input_size).
         '''
         W, b = self.params
         out = np.dot(x, W) + b
@@ -46,6 +55,10 @@ class AffineLayer:
         return out
     
     def backward(self, dout):
+        '''
+        Args:
+            dout (numpy.array): size of (batch_size, output_size).
+        '''
         W, b = self.params
 
         dx = np.dot(dout, W.T)
@@ -72,8 +85,8 @@ class SoftmaxLayer:
         return the loss of its result compared with y
 
         Args:
-            x (numpy.array) : size of (batch_size, dimension).
-            y (numpy.array) : size of (batch_size, 1).
+            x (numpy.array): size of (batch_size, input_size).
+            y (numpy.array): size of (batch_size, 1).
                 Each element in y represents the id of corresponding answer to x.
         Return:
             float: result of cross_entropy_error
@@ -85,6 +98,10 @@ class SoftmaxLayer:
         return loss
 
     def backward(self, dout):
+        '''
+        Args:
+            dout (float)
+        '''
         batch_size = self.y.shape[0]
 
         dx = self.o.copy()
@@ -107,8 +124,9 @@ if __name__ == '__main__':
     affine = AffineLayer(W, b)
     out = affine.forward(x)
     dx = affine.backward(out)
-    print(*['affine:', x, *affine.params, out, dx])
-    print(*affine.grads)
+    print(*['affine:', x, out, dx])
+    print(*(['affine(params)'] + affine.params))
+    print(*(['affine(grad)'] + affine.grads))
 
     y = np.array([1]).reshape(1,-1)
     print(*['softmax:', x, y])
