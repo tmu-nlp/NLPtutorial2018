@@ -110,7 +110,7 @@ class SoftmaxLayer:
         return dx
 
 if __name__ == '__main__':
-    x, y = 5, 7
+    x, y = 0.2, 0.8
 
     add = AddLayer()
     out = add.forward(5, 7)
@@ -123,7 +123,22 @@ if __name__ == '__main__':
     print(*['mul:', x, y, out, dx, dy])
 
     sig = SigmoidLayer()
-    out = sig.forward([x, y])
-    dx = sig.backward([1, 1])
+    out = sig.forward(np.array([x, y]))
+    dx = sig.backward(np.array([1, 1]))
     print(*['sigmoid:', x, y, out, dx])
 
+    W = np.random.rand(3, 2)
+    b = np.random.rand(3)
+    affine = AffineLayer(W, b)
+    out = affine.forward(np.array([x, y]))
+    dx = affine.backward(np.array([1, 1]))
+    print(*['sigmoid:', W, b])
+    print(*['sigmoid:', x, y, out, dx])
+    print(*['sigmoid:', affine.dW, affine.db])
+
+    sm = SoftmaxLayer()
+    out = sm.forward(np.array([x, y]), np.array([0, 1]))
+    dx = sm.backward(np.array([0.2, -0.2]))
+    print(*['softmax:', x, y, out, dx])
+
+    
