@@ -3,51 +3,19 @@ import sys, os
 sys.path.append(os.pardir)
 from common.functions import softmax, cross_entropy_error
 
-class AddLayer:
-    '''
-    加算を行うレイヤー
-    '''
-    def __init__(self):
-        pass
-    
-    def forward(self, x, y):
-        out = x + y
-
-        return out
-    
-    def backward(self, dout):
-        dx = dout * 1
-        dy = dout * 1
-
-        return dx, dy
-
-class MulLayer:
-    '''
-    積算を行うレイヤー
-    '''
-    def __init__(self):
-        self.x, self.y = None, None
-    
-    def forward(self, x, y):
-        self.x, self.y = x, y
-        out = x * y
-
-        return out
-    
-    def backward(self, dout):
-        dx = dout * self.y
-        dy = dout * self.x
-
-        return dx, dy
-
 class SigmoidLayer:
     '''
     Sigmoid関数を作用させるレイヤー
     '''
     def __init__(self):
+        self.params, self.grads = [], []
         self.out = None
     
     def forward(self, x):
+        '''
+        Args:
+            x (numpy.array) : size of (batch_size, dimension).
+        '''
         out = 1 / (1 + np.exp(-x))
         self.out = out
 
@@ -63,22 +31,29 @@ class AffineLayer:
      線形変換を行うレイヤー
     '''
     def __init__(self, W, b):
-        self.W = W
-        self.b = b
-        self.x = None   # for calculate dW
-        self.dW = None
-        self.db = None
+        self.params = [W, b]
+        self.grads = [np.zeros_like(W), np.zeros_like(b)]
+        self.x = None   # for calculating grad
 
     def forward(self, x):
+        '''
+        Args:
+            x (numpy.array) : size of (batch_size, dimension).
+        '''
+        W, b = self.params
+        out = np.dot(x, W) + b
         self.x = x
-        out = np.dot(self.W, x) + self.b
-
         return out
     
     def backward(self, dout):
-        dx = np.dot(dout, self.W.T)
-        self.dW = np.dot(self.x.T, dout)
-        self.db = np.sum(dout, axis=0)
+        W, b = self.params
+
+        dx = np.dot(dout, W.T)
+        dW = np.dot(self.x.T, dout)
+        db = np.sum(dout, axis=0)
+
+        self.grads[0][...] = dW
+        self.grads[1][...] = db
 
         return dx
 
@@ -87,58 +62,60 @@ class SoftmaxLayer:
     softmax変換を行うレイヤー
     '''
     def __init__(self):
+        self.params, self.grads = [], []
         self.y = None
         self.o = None
-        self.loss = None
     
     def forward(self, x, y):
+        '''
+        This function will perform softmax on x and 
+        return the loss of its result compared with y
+
+        Args:
+            x (numpy.array) : size of (batch_size, dimension).
+            y (numpy.array) : size of (batch_size, 1).
+                Each element in y represents the id of corresponding answer to x.
+        Return:
+            float: result of cross_entropy_error
+        '''
         self.y = y
         self.o = softmax(x)
-        self.loss = cross_entropy_error(self.o, self.y)
-
-        return self.loss
+        
+        loss = cross_entropy_error(self.o, self.y)
+        return loss
 
     def backward(self, dout):
         batch_size = self.y.shape[0]
-        if self.y.size == self.o.size:
-            dx = (self.o - self.y) / batch_size
-        else:
-            dx = self.o.copy()
-            dx[np.arange(batch_size), self.o] -= 1
-            dx = dx / batch_size
+
+        dx = self.o.copy()
+        dx[np.arange(batch_size), self.y] -= 1
+        dx *= dout
+        dx = dx / batch_size
         
         return dx
 
 if __name__ == '__main__':
-    x, y = 0.2, 0.8
-
-    add = AddLayer()
-    out = add.forward(5, 7)
-    dx, dy = add.backward(1)
-    print(*['add:', x, y, out, dx, dy])
-
-    mul = MulLayer()
-    out = mul.forward(x, y)
-    dx, dy = mul.backward(1)
-    print(*['mul:', x, y, out, dx, dy])
+    x = np.random.randn(1, 5)
 
     sig = SigmoidLayer()
-    out = sig.forward(np.array([x, y]))
-    dx = sig.backward(np.array([1, 1]))
-    print(*['sigmoid:', x, y, out, dx])
+    out = sig.forward(x)
+    dx = sig.backward(out)
+    print(*['sigmoid:', x, out, dx])
 
-    W = np.random.rand(3, 2)
-    b = np.random.rand(3)
+    W = np.random.rand(5, 10)
+    b = np.random.rand(10)
     affine = AffineLayer(W, b)
-    out = affine.forward(np.array([x, y]))
-    dx = affine.backward(np.array([1, 1]))
-    print(*['sigmoid:', W, b])
-    print(*['sigmoid:', x, y, out, dx])
-    print(*['sigmoid:', affine.dW, affine.db])
+    out = affine.forward(x)
+    dx = affine.backward(out)
+    print(*['affine:', x, *affine.params, out, dx])
+    print(*affine.grads)
+
+    y = np.array([1]).reshape(1,-1)
+    print(*['softmax:', x, y])
 
     sm = SoftmaxLayer()
-    out = sm.forward(np.array([x, y]), np.array([0, 1]))
-    dx = sm.backward(np.array([0.2, -0.2]))
-    print(*['softmax:', x, y, out, dx])
+    out = sm.forward(x, y)
+    dx = sm.backward(out)
+    print(*['softmax:', x, out, dx])
 
     
