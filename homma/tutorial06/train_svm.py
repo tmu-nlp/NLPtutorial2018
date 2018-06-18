@@ -25,6 +25,10 @@ def create_features(raw_sentence):
     words = raw_sentence.split()
     for word in words:
         phi[f'UNI:{word}'] += 1
+
+    for biword in zip(words[:-1], words[1:]):
+        phi[f'BI:{" ".join(biword)}'] += 1
+
     return phi
 
 
@@ -68,6 +72,9 @@ def train_svm(epoch, train_file, output_file, margin=20):
             val = score * label
             if val <= margin:
                 update_weights(w, phi, label)
+
+    # 本当は最後に正則化が必要
+
     # ファイルへ書き出し
     with open(output_file, 'w', encoding='utf8') as f:
         f.writelines(f'{k}\t{v}\n' for k, v in sorted(w.w.items()))
@@ -110,6 +117,8 @@ if __name__ == '__main__':
 '''
 ../../script/grade-prediction.py ../../data/titles-en-test.labeled my_answer
 
-Accuracy = 93.552958% (epoch 10, this(svm))
-Accuracy = 93.446688% (epoch 10, perceptron)
+Accuracy = 93.552958% (1-gram, epoch 10, this(svm))
+Accuracy = 93.446688% (1-gram, epoch 10, perceptron)
+
+Accuracy = 94.226001% (2-gram, epoch 10, this(svm))
 '''
