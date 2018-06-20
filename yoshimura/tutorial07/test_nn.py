@@ -1,7 +1,6 @@
 # from train_nn.py import forward_nn
 import numpy as np
 import dill
-　
 # テストファイルのパス
 test_path = '../../data/titles-en-test.word'
 # test_path = 'test.txt'  # テスト用

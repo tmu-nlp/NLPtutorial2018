@@ -5,6 +5,7 @@ import numpy as np
 from collections import Counter
 from multiprocessing import Pool
 from utils.n_gram import interpolate_gen, n_gram
+from utils import data
 from random import shuffle
 from stemming.porter2 import stem
 import csv
@@ -95,24 +96,14 @@ class Trainer:
         self._featurize = feature_maker
 
     def add_corpus(self, fname):
-        with open(fname) as fr:
-            for line in fr:
-                label, sentence = line.split('\t') # tokenize & feature extraction
-                self._labels.append(int(label))
-                features = self._featurize(sentence)
-                self._inputs.append(features)
-                self._features += features
+        for x, y in data.load_train_dataset(self._featurize, fname):
+            self._labels.append(y)
+            self._inputs.append(x)
+            self._features += x
 
     def train(self, num_epoch = 30, stop_loss = 0.03, batch_size = 100, mp = 8, train_set_ratio = 0.9, bias = 1, decrease_threshold = 0.25):
         interpolate = interpolate_gen(0.9)
-        total = len(self._inputs)
-        idx = list(range(total))
-        shuffle(idx)
-        train_set_ratio = int(total * train_set_ratio)
-        train_set_idx = idx[:train_set_ratio]
-        valid_set_idx = idx[train_set_ratio:]
-        validation_x = tuple(self._inputs[i] for i in valid_set_idx)
-        validation_y = tuple(self._labels[i] for i in valid_set_idx)
+        total, train_set_idx, (validation_x, validation_y) = data.split_dataset(self._inputs, self._labels, train_set_ratio)
         vloss = '-'
         blend_loss = None
         best_weights = (1, None)
@@ -134,7 +125,7 @@ class Trainer:
                 n = len(feat2id)
                 perceptron = Perceptron( n + 1 if bias else n )
             t = 0
-            while t < train_set_ratio:
+            while t < len(train_set_idx):
                 if mp > 1:
                     inputs = []
                     labels = []
@@ -144,7 +135,7 @@ class Trainer:
                         inputs.append(_vectorize(feat2id, rand_inputs, bias))
                         labels.append(np.asarray(rand_labels))
                         t += batch_size
-                        if t >= train_set_ratio:
+                        if t >= len(train_set_idx):
                             break
                     try:
                         tloss = perceptron.update_mp(inputs, labels, pool)
@@ -157,7 +148,7 @@ class Trainer:
                     t += batch_size
                     tloss = perceptron.update(inputs, labels)
 
-                if valid_set_idx:
+                if len(validation_x):
                     inputs = _vectorize(feat2id, validation_x, bias)
                     labels = np.asarray(validation_y)
                     vloss = np.average(perceptron.predict(inputs, labels))
@@ -165,7 +156,7 @@ class Trainer:
                         blend_loss = vloss
                     else:
                         blend_loss = interpolate(vloss, blend_loss)
-                print(f"Error rate epoch.{epoch}({t}/{train_set_ratio}|{total}): {tloss} {vloss}", flush = True)
+                print(f"Error rate epoch.{epoch}({t}/{len(train_set_idx)}|{total}): {tloss} {vloss}", flush = True)
                 loss_info.writerow((epoch, tloss, vloss))
                 shuffle(train_set_idx)
             # end while - batch
