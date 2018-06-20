@@ -32,19 +32,23 @@ class Momentum:
             params[i] += self.v[i]
 
 class Trainer:
-    def __init__(self, model, optimizer):
+    def __init__(self, model, optimizer, model_dir='./model'):
         self.model = model
         self.optimizer = optimizer
+        self.model_dir = model_dir
 
     def train(self, x, y, max_epoch=10, batch_size=32):
-        data_size = len(x)
         model, optimizer = self.model, self.optimizer
         
+        dev_x, dev_y = x[-1000:], y[-1000:]
+        x, y = x[:-1000], y[:-1000]
+        data_size = len(x)
+
         for epoch in range(max_epoch):
             rand_idx = np.random.permutation(np.arange(data_size))
             x, y = x[rand_idx], y[rand_idx]
             loss_list = []
-            max_iters = data_size // batch_size
+            max_iters = data_size // batch_size - 1
             eval_interval = max_iters // 10
 
             for i in range(max_iters):
@@ -61,7 +65,11 @@ class Trainer:
                 if i % eval_interval == 0:
                     print(f'epoch #{epoch+1} | {i+1}/{max_iters} | loss = {loss}')
             
-            print(f'epoch #{epoch+1} | loss = {sum(loss_list)/len(loss_list)}')
+            acc = self.model.accuracy(dev_x, dev_y)
+            
+            print(f'epoch #{epoch+1} | loss = {sum(loss_list)/len(loss_list)} | dev acc = {acc}')
+
+            
     
     def merge_dups(self, params, grads):
         params, grads = params[:], grads[:]
@@ -86,12 +94,12 @@ class Trainer:
 
 class SimpleNeuralNetwork:
     def __init__(self, input_size, hidden_size, output_size):
-        I, H, O = input_size, hidden_size, output_size
+        self.I, self.H, self.O = input_size, hidden_size, output_size
 
-        W1 = 0.01 * np.random.randn(I, H)
-        b1 = np.zeros(H)
-        W2 = 0.01 * np.random.randn(H, O)
-        b2 = np.zeros(O)
+        W1 = 0.01 * np.random.randn(self.I, self.H)
+        b1 = np.zeros(self.H)
+        W2 = 0.01 * np.random.randn(self.H, self.O)
+        b2 = np.zeros(self.O)
 
         self.layers = [
             AffineLayer(W1, b1),
@@ -105,14 +113,20 @@ class SimpleNeuralNetwork:
             self.params += layer.params
             self.grads += layer.grads
 
-    # def save_params(self, file_name='model.pkl'):
-    #     with open(file_name, 'wb') as f:
-    #         pickle.dump(self.params, f)
+    def save_params(self, file_name='model.pkl'):
+        with open(file_name, 'wb') as f:
+            pickle.dump((self.I, self.H, self.O, self.params), f)
 
-    # def load_params(self, file_name='model.pkl'):
-    #     with open(file_name, 'rb') as f:
-    #         params = pickle.load(f)
-        
+    @staticmethod
+    def load_params(model_file='model.pkl'):
+        with open(model_file, 'rb') as f:
+            input_size, hidden_size, output_size, params = pickle.load(f)
+
+            model = SimpleNeuralNetwork(input_size, hidden_size, output_size)
+            for i, p in enumerate(params):
+                model.params[i][...] = p
+            
+            return model
 
     def predict(self, x):
         '''
