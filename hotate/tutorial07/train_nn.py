@@ -5,22 +5,23 @@ import re
 import pickle
 import numpy as np
 from Network import Output, Hidden, Input
-import cProfile
 
 
 def train(path, n):
     ids = defaultdict(lambda: len(ids))
     feat_lab = []
     for line in open(path, 'r'):
-        ans = int(line.split('\t')[0])
-        sentence = line.split('\t')[1].strip('\n').lower()
+        ans, sentence = line.strip('\n').lower().split('\t')
         phi = defaultdict(int)
         phi = create_features(sentence, n, phi, ids)
-        feat_lab.append([phi, ans])
+        feat_lab.append([phi, int(ans)])
 
     feat_list = []
     for feat in feat_lab:
         feat_list.append([create_phi_list(feat[0], len(ids)), feat[1]])
+
+    ids = dict(ids)
+    pickle.dump(ids, open('ids.pkl', 'wb'))
 
     output_size = 1
     hidden_size = 16
@@ -33,10 +34,9 @@ def train(path, n):
 
     epoch = 10
     for e in range(epoch):
-        for i, (phi, ans) in enumerate(feat_list):
+        for phi, ans in feat_list:
             forward_nn(phi, out, hid, inp)
             backward_nn(ans, out, hid, inp)
-            # print(i)
         print(e)
         pickle.dump(hid, open(f'hidden_model_{e}', 'wb'))
         pickle.dump(inp, open(f'input_model_{e}', 'wb'))
@@ -85,5 +85,4 @@ def remove_symbol(sentence):
 
 
 if __name__ == '__main__':
-    # train('../../data/titles-en-train.labeled', 1)
-    cProfile.run("train('../../data/titles-en-train.labeled', 1)")
+    train('../../data/titles-en-train.labeled', 1)
