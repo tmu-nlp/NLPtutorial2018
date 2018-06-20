@@ -67,11 +67,11 @@ def backword_nn(net, phi, label):
     delta_p = np.zeros(J + 1, dtype=np.ndarray)
 
     for i in range(J, 0, -1):
-        delta_p[i] = delta[i] * (1 - np.square(phi[i]))
+        delta_p[i] = (1 - np.square(phi[i])).T * delta[i]
         w, _ = net[i - 1]
         delta[i - 1] = np.dot(delta_p[i], w)
 
-    return delta
+    return delta_p
 
 
 def update_weights(net, phi, delta, lambda_):
@@ -123,4 +123,4 @@ if __name__ == '__main__':
     train_file = args.train if args.train else r'..\..\data\titles-en-train.labeled'
     model_file = args.output if args.output else r'nn_model'
 
-    train_nn(train_file, model_file, lambda_=0.03, epoch=30, hidden_n=8)
+    train_nn(train_file, model_file)
