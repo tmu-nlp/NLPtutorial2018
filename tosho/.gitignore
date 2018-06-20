@@ -1,3 +1,2 @@
-.vscode/
-*.sh
-test_*
+*.*
+!*.py
