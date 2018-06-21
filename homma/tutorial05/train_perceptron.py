@@ -22,6 +22,8 @@ def create_features(raw_sentence):
     words = raw_sentence.split()
     for word in words:
         phi[f'UNI:{word}'] += 1
+    for biword in zip(words[:-1], words[1:]):
+        phi[f'BI:{" ".join(biword)}'] += 1
     return phi
 
 
