@@ -9,15 +9,20 @@ class SigmoidLayer:
     '''
     def __init__(self):
         self.params, self.grads = [], []
-        self.out = None
+        self.out = []
     
-    def forward(self, x):
+    def forward(self, x, s=0):
         '''
         Args:
             x (numpy.array): size of (batch_size, input_size).
+            s (int, default:0): time step of input.
         '''
+
+        if s == 0 and len(self.out) > 0:
+            self.out = []
+
         out = 1 / (1 + np.exp(-x))
-        self.out = out
+        self.out.append(out)
 
         return out
 
@@ -26,7 +31,9 @@ class SigmoidLayer:
         Args:
             dout (numpy.array): size of (batch_size, input_size).
         '''
-        dx = dout * (1.0 - self.out) * self.out
+        out = self.out.pop()
+
+        dx = dout * (1.0 - out) * out
 
         return dx
 
@@ -42,16 +49,20 @@ class AffineLayer:
         '''
         self.params = [W, b]
         self.grads = [np.zeros_like(W), np.zeros_like(b)]
-        self.x = None   # for calculating grad
+        self.x = []   # for calculating grad
 
-    def forward(self, x):
+    def forward(self, x, s=0):
         '''
         Args:
             x (numpy.array): size of (batch_size, input_size).
+            s (int, default:0): time step of input.
         '''
+        if s == 0 and len(self.x) > 0:
+            self.x = []
+
         W, b = self.params
         out = np.dot(x, W) + b
-        self.x = x
+        self.x.append(x)
         return out
     
     def backward(self, dout):
@@ -60,9 +71,10 @@ class AffineLayer:
             dout (numpy.array): size of (batch_size, output_size).
         '''
         W, b = self.params
+        x = self.x.pop()
 
         dx = np.dot(dout, W.T)
-        dW = np.dot(self.x.T, dout)
+        dW = np.dot(x.T, dout)
         db = np.sum(dout, axis=0)
 
         self.grads[0][...] = dW
@@ -76,10 +88,10 @@ class SoftmaxLayer:
     '''
     def __init__(self):
         self.params, self.grads = [], []
-        self.t = None
-        self.y = None
+        self.t = []
+        self.y = []
     
-    def forward(self, x, t):
+    def forward(self, x, t, s=0):
         '''
         This function will perform softmax on x and 
         return the loss of its result compared with y
@@ -91,10 +103,15 @@ class SoftmaxLayer:
         Return:
             float: result of cross_entropy_error
         '''
-        self.t = t
-        self.y = softmax(x)
+        if s == 0 and len(self.t) > 0:
+            self.t, self.y = [], []
+
+        y = softmax(x)
+
+        self.t.append(t)
+        self.y.append(y)
         
-        loss = cross_entropy_error(self.y, self.t)
+        loss = cross_entropy_error(y, t)
         return loss
 
     def backward(self, dout):
@@ -102,10 +119,12 @@ class SoftmaxLayer:
         Args:
             dout (float)
         '''
-        batch_size = self.t.shape[0]
+        t = self.t.pop()
+        y = self.y.pop()
+        batch_size = t.shape[0]
 
-        dx = self.y.copy()
-        dx[np.arange(batch_size), self.t] -= 1
+        dx = y.copy()
+        dx[np.arange(batch_size), t] -= 1
         dx *= dout
         dx = dx / batch_size
         
@@ -117,21 +136,63 @@ class TanhLayer:
     '''
     def __init__(self):
         self.params, self.grads = [], []
-        self.out = None
+        self.out = []
     
-    def forward(self, x):
+    def forward(self, x, s=0):
+        if s == 0 and len(self.out) > 0:
+            self.out = []
+
         out = np.tanh(x)
-        self.out = out
+        self.out.append(out)
 
         return out
     
     def backward(self, dout):
-        dx = dout * (1 - self.out**2)
+        out = self.out.pop()
+        dx = dout * (1 - out**2)
         return dx
 
 
+class RecurrentLayer:
+    def __init__(self, Wx, Wh, b):
+        self.params = [Wx, Wh, b]
+        self.grads = [np.zeros_like(Wx), np.zeros_like(Wh), np.zeros_like(b)]
+        self.x = []
+        self.h = []
+    
+    def forward(self, x):
+        Wx, Wh, b = self.params
+
+        last_h = np.zeros((x.shape[0],Wh.shape[0])) if len(self.h) == 0 else self.h[-1]
+        out = np.tanh(np.dot(x, Wx) + np.dot(last_h, Wh) + b)
+
+        self.x.append(x)
+        self.h.append(out)
+
+        return out
+    
+    def backward(self, dout):
+        Wx, Wh, b = self.params
+        
+        this_h = self.h.pop()
+
+        if len(self.x) > 0:
+            this_x = self.x.pop()
+            dWx = np.dot(this_x, dout)
+            self.grads[0][...] = dWx
+
+        if len(self.h) > 0:
+            dWh = np.dot(this_h, dout)
+            self.grads[1][...] = dWh
+
+        db = np.sum(dout, axis=0)
+        self.grads[2][...] = db
+
+        dx = np.dot(dout, Wx.T)
+        return dx
+
 if __name__ == '__main__':
-    x = np.random.randn(1, 5)
+    x = np.random.randn(2, 5)
 
     sig = SigmoidLayer()
     out = sig.forward(x)
@@ -155,4 +216,12 @@ if __name__ == '__main__':
     dx = sm.backward(out)
     print(*['softmax:', x, out, dx])
 
-    
+    tanh = TanhLayer()
+    out = tanh.forward(x)
+    dx = tanh.backward(out)
+    print(*['tanh', x, out, dx])
+
+    # forward/backward multi times
+    out = [sig.forward(x, s) for s in range(3)]
+    dx = [sig.backward(out.pop()) for _ in range(3)]
+    print(*['sigmoid(3):', x, out, dx])
