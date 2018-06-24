@@ -7,6 +7,22 @@ from tqdm import tqdm
 
 
 def train(path):
+    feat_lab, output_size, input_size = create_data(path)
+
+    out, hid, inp = create_layer(output_size, input_size)
+
+    lam = 0.005
+    epoch = 30
+    for e in tqdm(range(epoch)):
+        for x_list, y_list in feat_lab:
+            forward(x_list, out, hid, inp)
+            backward(y_list, out, hid, inp)
+            update_weights(lam, hid, inp)
+    pickle.dump(hid, open(f'hidden_model_{hid.w_h.shape[0]}_{e+1}_{lam}', 'wb'))
+    pickle.dump(inp, open(f'input_model_{hid.w_h.shape[0]}_{e+1}_{lam}', 'wb'))
+
+
+def create_data(path):
     x_ids, y_ids = make_ids(path)
 
     pickle.dump(dict(x_ids), open('x_ids.pkl', 'wb'))
@@ -27,24 +43,20 @@ def train(path):
         feat_lab.append([x_list, y_list])
 
     output_size = y_size
-    hidden_size = 84
     input_size = x_size
+
+    return feat_lab, output_size, input_size
+
+
+def create_layer(output_size, input_size):
+    hidden_size = 84
     out = Output()
     hid = Hidden(w_h=np.random.uniform(-0.1, 0.1, (hidden_size, hidden_size)),
                  w_o=np.random.uniform(-0.1, 0.1, (hidden_size, output_size)),
                  b_o=np.random.uniform(-0.1, 0.1, (1, output_size)))
     inp = Input(w=np.random.uniform(-0.1, 0.1, (input_size, hidden_size)),
                 b=np.random.uniform(-0.1, 0.1, (1, hidden_size)))
-
-    lam = 0.005
-    epoch = 30
-    for e in tqdm(range(epoch)):
-        for x_list, y_list in feat_lab:
-            forward(x_list, out, hid, inp)
-            backward(y_list, out, hid, inp)
-            update_weights(lam, hid, inp)
-    pickle.dump(hid, open(f'hidden_model_{hidden_size}_{e+1}_{lam}', 'wb'))
-    pickle.dump(inp, open(f'input_model_{hidden_size}_{e+1}_{lam}', 'wb'))
+    return out, hid, inp
 
 
 def initialize(out, hid, inp):

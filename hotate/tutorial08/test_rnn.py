@@ -17,8 +17,8 @@ def test(path):
         feat_lab.append(x_list)
 
     out = Output()
-    hid = pickle.load(open('hidden_model_84_30_0.006', 'rb'))
-    inp = pickle.load(open('input_model_84_30_0.006', 'rb'))
+    hid = pickle.load(open('hidden_model_84_30_0.005', 'rb'))
+    inp = pickle.load(open('input_model_84_30_0.005', 'rb'))
 
     with open('my_answer', 'w') as f:
         for x_list in feat_lab:
@@ -36,17 +36,17 @@ if __name__ == '__main__':
 #
 # hidden_size = 84
 # epoch = 30
-# lamda = 0.006
-# Accuracy: 89.59% (4088/4563)
+# lamda = 0.005
+# Accuracy: 89.52% (4088/4563)
 #
 # Most common mistakes:
-# JJ --> NN       67
-# NNS --> NN      64
-# NNP --> NN      49
-# VBN --> NN      24
+# NNS --> NN      65
+# JJ --> NN       64
+# NNP --> NN      51
+# VBN --> NN      23
 # IN --> WDT      17
-# VB --> NN       14
-# NN --> JJ       14
-# VBG --> NN      13
-# VBP --> NN      12
-# RB --> NN       9
+# VB --> NN       15
+# VBP --> NN      15
+# VBG --> NN      15
+# NN --> JJ       13
+# JJ --> NNS      11
