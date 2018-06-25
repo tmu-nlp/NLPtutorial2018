@@ -4,7 +4,7 @@ import pickle
 import sys
 from tqdm import tqdm
 
-#ids=defaultdict(lambda:len(ids))
+ids=defaultdict(lambda:len(ids))
 train_file = '../../data/titles-en-train.labeled'
 epoch=1
 l=0.1
