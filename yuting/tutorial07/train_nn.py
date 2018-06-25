@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 #ids=defaultdict(lambda:len(ids))
 train_file = '../../data/titles-en-train.labeled'
-epoch=2
+epoch=1
 l=0.1
 
 def make_ids(train_file):
@@ -44,7 +44,7 @@ def forward_nn(network,phi0):
 #ニューラルネットの伝搬コード
 def backward_nn(net,phi,y_):
 	j = len(net)
-	delta = [0 for i in range(j)]
+	delta = [0 for i in range(j+1)]
 	delta[-1] = np.array([y_ - phi[j][0]])
 	delta_ = [0 for i in range(j+1)]
 	for i in reversed(range(j)):
@@ -85,17 +85,11 @@ def train(train_file):
 			phi=forward_nn(net,phi0)
 			delta_=backward_nn(net,phi,y)
 			net=update_weights(net,phi,delta_,l)
-	
-if __name__=="__main__":
-	train_file = '../../data/titles-en-train.labeled'
-	ids = make_ids(train_file)
-#ids作成済み
-	net = train(train_file)
 
 	with open('weight_file.txt','wb') as w, open('id_file.txt','wb') as id_:
-		#pickle.dump(net,w)
-		#pickle.dump(dict(ids),id_)
+		
 		w.write(net)
 		id_.write(ids)
 	
-
+if __name__=="__main__":
+	train(train_file)
