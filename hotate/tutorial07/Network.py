@@ -15,16 +15,6 @@ class Output:
         delta2 = (self.phi - ans) * (1 - self.phi ** 2)
         return delta2
 
-    def insert_loss(self, phi, ans):
-        delta2 = (phi - ans) * (1 - phi ** 2)
-        self.loss = np.append(self.loss, delta2)
-
-    def delta2(self):
-        delta2 = np.average(self.loss)
-        self.loss = np.array([])
-        print(delta2)
-        return delta2
-
     def result(self):
         if self.phi >= 0:
             return 1

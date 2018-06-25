@@ -1,15 +1,17 @@
 from collections import defaultdict, Counter
 from math import exp
 from random import randint
+import sys
+sys.path.append('..')
+from utils.data import load_train_dataset
 
 def loadDataSet(fname = '../../data/titles-en-train.labeled'):
     data = []; labels = []
     vocab = defaultdict(lambda: len(vocab))
-    with open(fname) as fr:
-        for line in fr:
-            lineArr = line.strip().split('\t')
-            labels.append(float(lineArr[0]))
-            data.append(Counter(vocab[w] for w in lineArr[1].split()))
+    featurizer = lambda line:Counter(vocab[w] for w in line.split())
+    for feats, label in load_train_dataset(featurizer, fname):
+        labels.append(label)
+        data.append(feats)
     return data, labels, vocab
 
 def selectJrand(i,m):
@@ -42,7 +44,7 @@ def distance(one, eno):
     sub = substract(one, eno)
     return multiply(sub, sub)
 
-def smo_platt(data, labels, C, toler, maxIter, verbose = False):
+def smo_platt(data, labels, noise_C, noise_toler, maxIter, verbose = False):
     b = 0
     total_n = len(data)
     alphas = [0 for _ in range(total_n)]
@@ -51,20 +53,23 @@ def smo_platt(data, labels, C, toler, maxIter, verbose = False):
         alphaPairsChanged = 0
         for i in range(total_n):
             Ei = predict(alphas, labels, data, i, b) - labels[i]
+            # optimization goal: No violation of KKT ~ |V| - 1
+            # solve with Wolf dual saddle problem, maximize alphas
             # t*(y-t)>o  t>0:y>t+o t<0:y<t-o
             # t*(y-t)<-o t>0:y<t-o t<0:y>t+o
-            if (labels[i]*Ei > toler) and (alphas[i] > 0) or \
-                    (labels[i]*Ei < -toler) and (alphas[i] < C) :
+            # kernel validation should meet Mercer's condition
+            if (labels[i]*Ei > noise_toler) and (alphas[i] > 0) or \
+                    (labels[i]*Ei < -noise_toler) and (alphas[i] < noise_C) :
 
                 j = selectJrand(i, total_n)
-                if (labels[i] != labels[j]):
+                if (labels[i] != labels[j]): # also KKT bounds high and low
                     adv = alphas[j] - alphas[i]
                     L = max(0, adv)
-                    H = min(C, C + adv)
+                    H = min(noise_C, noise_C + adv)
                 else:
                     pee = alphas[j] + alphas[i]
-                    L = max(0, pee - C)
-                    H = min(C, pee)
+                    L = max(0, pee - noise_C)
+                    H = min(noise_C, pee)
                 if L==H:
                     #print("L==H")
                     continue
@@ -85,7 +90,8 @@ def smo_platt(data, labels, C, toler, maxIter, verbose = False):
                 alpha_i = alphas[i]
                 alpha_j = alphas[j]
 
-                #update i by the same amount as j in the oppostie direction
+                # update i by the same amount as j in the oppostie direction
+                # meet the global sum(t*a) = 0
                 alphas[j] += delta
                 alphas[i] -= labels[j] * labels[i] * delta
 
@@ -101,9 +107,9 @@ def smo_platt(data, labels, C, toler, maxIter, verbose = False):
                 b2 -= labels[i] * (alphas[i] - alpha_j) * mji
                 b2 -= labels[j] * (alphas[j] - alpha_j) * mjj
 
-                if 0 < alphas[i] < C:
+                if 0 < alphas[i] < noise_C:
                     b = b1
-                elif 0 < alphas[j] < C:
+                elif 0 < alphas[j] < noise_C:
                     b = b2
                 else:
                     b = (b1 + b2) / 2
@@ -135,8 +141,8 @@ def predict_raw(src, dst, vocab, weights, b):
             fw.write('%d\n' % (1 if res > 0 else -1))
 
 if __name__ == '__main__':
-    x, y, v = loadDataSet('../../data/titles-en-train.labeled')
-    #x, y, v = loadDataSet('short.labeled')
+    #x, y, v = loadDataSet('../../data/titles-en-train.labeled')
+    x, y, v = loadDataSet('short.labeled')
     print('Vocab size', len(v))
     b, alphas = smo_platt(x, y, 200, 0.0001, 100, True)
     wdic = weights(alphas, y, x)
