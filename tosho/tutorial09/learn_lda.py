@@ -1,7 +1,6 @@
 from random import randint, random
 from collections import defaultdict
 from math import log2
-from pprint import pprint
 
 def load_test_data(file_name='../../test/07-train.txt'):
     with open(file_name, 'r') as data:
@@ -10,10 +9,16 @@ def load_test_data(file_name='../../test/07-train.txt'):
             for word in line.split():
                 yield [i, word]
 
-TOPICS = 2
-def main(load_data=load_test_data, max_iter=10):
+def load_wiki_data(file_name='../../data/wiki-en-documents.word'):
+    with open(file_name, 'r') as data:
+        for i, line in enumerate(data):
+            line = line.rstrip()
+            for word in line.split():
+                yield [i, word]
+
+def main(load_data=load_test_data, max_iter=10, topics=2):
     # initialize
-    data = [[w[0], w[1], randint(0, TOPICS-1)] for w in load_data()]
+    data = [[w[0], w[1], randint(0, topics-1)] for w in load_data()]
     xcounts, ycounts = defaultdict(int), defaultdict(int)
 
     words = set()
@@ -27,14 +32,14 @@ def main(load_data=load_test_data, max_iter=10):
         ll = 0
         for w in data:            
             add_counts(xcounts, ycounts, w, -1)
-            probs = get_probs(xcounts, ycounts, w, nw, a=t+1, b=t+1)
+            probs = get_probs(xcounts, ycounts, w, nw, topics=topics, a=t+1, b=t+1)
             new_k = sample_one(probs)
             ll += log2(probs[new_k])
             w[2] = new_k
             add_counts(xcounts, ycounts, w, 1)
 
         if t % print_interval == 0:
-            print(f'iter {t}|ll={ll:.2f}|{[w[2] for w in data]}')
+            print(f'iter {t}|ll={ll:.2f}')
     
     for w in data:
         print(*w[1:])
@@ -45,7 +50,7 @@ def add_counts(xcounts, ycounts, w, amount):
     ycounts[f'{w[0]}'] += amount
     ycounts[f'{w[2]}|{w[0]}'] += amount
 
-def get_probs(xcounts, ycounts, w, nw, topics=TOPICS, a=1, b=1):
+def get_probs(xcounts, ycounts, w, nw, topics, a=1, b=1):
     probs = []
     for k in range(topics):
         c_k = xcounts[f'{k}']
@@ -69,6 +74,6 @@ def sample_one(probs):
     raise Exception()
 
 if __name__ == '__main__':
-    main()
+    main(load_data=load_wiki_data, max_iter=10, topics=5)
     # import cProfile
     # cProfile.run('main()')
