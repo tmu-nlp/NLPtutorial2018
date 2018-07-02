@@ -49,7 +49,6 @@ def prob_topic_k(x, k, Y):
 for line in open(data_path, 'r'):
     doc_id = len(xcorpus)  # この文章のIDを取得
     words = line.rstrip().split(' ')
-    # topics = [random.randint(0, len(words)) for _ in range(len(words))]  # 単語のトピックをランダム初期化
     topics = []
     for word in words:
         topic = random.randint(0, NUM_TOPICS - 1)  # [0, NUM_TOP)の間
@@ -73,7 +72,7 @@ for _ in range(EPOCH):
             LL += math.log(probs[new_y])  # 対数尤度の計算
             add_counts(x, new_y, i, 1)  # 各カウントの加算
             ycorpus[i][j] = new_y
-    print(LL)
+    # print(LL)
 
 for i in range(len(xcorpus)):
     for j in range(len(xcorpus[i])):
