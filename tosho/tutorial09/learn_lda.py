@@ -32,7 +32,7 @@ def main(load_data=load_test_data, max_iter=10, topics=2):
         ll = 0
         for w in data:            
             add_counts(xcounts, ycounts, w, -1)
-            probs = get_probs(xcounts, ycounts, w, nw, topics=topics, a=t+1, b=t+1)
+            probs = get_probs(xcounts, ycounts, w, nw, topics=topics)
             new_k = sample_one(probs)
             ll += log2(probs[new_k])
             w[2] = new_k
@@ -41,8 +41,12 @@ def main(load_data=load_test_data, max_iter=10, topics=2):
         if t % print_interval == 0:
             print(f'iter {t}|ll={ll:.2f}')
     
+    last_line = 0
     for w in data:
-        print(*w[1:])
+        if last_line != w[0]:
+            print()
+            last_line = w[0]
+        print(f'{w[1]}_{w[2]}', end=' ')
 
 def add_counts(xcounts, ycounts, w, amount):
     xcounts[f'{w[2]}'] += amount
@@ -74,6 +78,9 @@ def sample_one(probs):
     raise Exception()
 
 if __name__ == '__main__':
-    main(load_data=load_wiki_data, max_iter=10, topics=5)
+    load_data = load_wiki_data
+    topics = 5
+
+    main(load_data=load_data, max_iter=10, topics=topics)
     # import cProfile
     # cProfile.run('main()')
