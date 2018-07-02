@@ -1,24 +1,41 @@
 import numpy as np
-import sys
-sys.path.append("..")
-from utils.n_gram import n_gram
-from utils.data import load_train_dataset, split_dataset
+from n_gram import n_gram
+from data import load_train_dataset, split_dataset
 
 class Sigmoid:
     def __call__(self, inputs):
-        inputs = 1 / (np.exp(-inputs) + 1)
+        # 1 / ( 1 + e^{-x} )
+        np.exp(-inputs, out = inputs)
+        np.add(inputs, 1, out = inputs)
+        np.divide(1, inputs, out = inputs)
 
     def grad(self, outputs, errors):
-        errors = outputs * (1 - outputs) * errors
+        np.multiply(outputs * (1 - outputs), errors, out = errors)
+
+class Softmax:
+    def __init__(self):
+        self._sigmoid = Sigmoid()
+
+    def __call__(self, inputs):
+        self._sigmoid(inputs)
+        n = np.sum(inputs)
+        np.divide(inputs, n, out = inputs)
+
+    def grad(self, outputs, errors):
+        pass
+
 
 class SteepestGradientOptimizer:
-    def __init__(self, weights, learning_rate, momentum = 0.9):
-        self._ws = weights
+    def __init__(self, learning_rate, momentum = 0.9):
+        self._ws = []
         self._lr = learning_rate
         self._mt = momentum
         self._mm = None
 
-    def __call__(self, updates):
+    def register(self, weights_updates):
+        self._ws.append(weights_updates)
+
+    def __call__(self):
         if self._mt:
             if self._mm is None:
                 self._mm = updates.copy()
@@ -27,10 +44,16 @@ class SteepestGradientOptimizer:
         self._ws += self._lr * (self._mm if self._mt else updates)
 
 class FeedForwardLayer:
-    def __init__(self, in_dim, out_dim, act, opt):
-        self._weights = np.zeros((out_dim, in_dim))
-        self._updates = np.zeros_like(self._weights)
-        self._biases = np.zeros((out_dim, 1)) # broadcast
+    def __init__(self, in_dim, out_dim, opt, **pararms):
+        initializer = params.get('initializer', np.random.uniform)
+        attr_shapes = {'_weights': (out_dim, in_dim), '_biases': (out_dim, 1)}
+        for w,s in attr_shapes.items:
+            try:
+                setattr(self, w, initializer(size = s))
+            except:
+                setattr(self, w, initializer(shape = s))
+        if params['mode'] == 'train':
+            self._updates = np.zeros_like(self._weights)
         self._io = None
         self._errors = None
         self._act = act
@@ -86,18 +109,31 @@ class FeedForwardLayer:
         self._opt(self._updates)
 
 
-class Embedding:
+class EmbeddingLayer:
     def __init__(self, in_dim, out_dim, opt):
-        self._emb = np.random.uniform((out_dim, in_dim))
+        self._emb = np.random.uniform(size = (in_dim, out_dim))
         self._opt = opt
         self._io = None
 
-    def feed(self, inputs):
-        batch_size, time_step,
-        outputs = np.
+    def feed(self, inputs, updating = False):
+        batch_size, time_step = inputs.shape
+        initial = self._io is None
+        if initial:
+            out_dim = self._emb.shape[1]
+            outputs = np.empty((batch_size, time_step, out_dim))
+            self._io = [inputs, outputs]
+        else:
+            self._io[0] = inputs
+
+        for ii, i in np.ndenumerate(inputs):
+            self._io[1][ii] = self._emb[i]
+
+        if initial:
+            #if updating:
+            return outputs
 
 class Network:
-    def __init__(self, layer_shape_act = ((30, None), (100, Sigmoid), (10, Sigmoid)), opt):
+    def __init__(self, layer_shape_act, opt):
         layers = []
         for (i, _), (o, a) in n_gram(2, layer_shape_act):
             layers.append(FeedForwardLayer(i, o, a, opt))
@@ -139,9 +175,10 @@ class Network:
         # return the best model
 
     def predict(self, with_x):
+        pass
 
 
-def DataSet:
+class DataSet:
     def __init__(self, fname, batch_size):
         self._X = []
         self._Y = []
