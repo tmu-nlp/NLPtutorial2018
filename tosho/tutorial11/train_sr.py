@@ -16,6 +16,7 @@ python train_sr.py <../../data/mstparser-en-train.dep
 from collections import defaultdict, deque
 import pickle as pkl
 from sys import stdin
+from itertools import islice
 
 OP_SHIFT = 'SHIFT'
 OP_LEFT = 'LEFT'
@@ -28,16 +29,21 @@ def main():
     W[OP_LEFT] = defaultdict(int)
     W[OP_RIGHT] = defaultdict(int)
 
-    data = load_data()
+    *data, = load_data()
 
     # data = [list(data)[0]]
 
-    c = 0
-    for sentence in data:
-        shift_reduce(deque(sentence[:]), W)
-        c += 1
+    for _ in range(10):
+        print(f'epoch {_+1}')
+        for sentence in data:
+            shift_reduce(sentence[:], W)
+        
+        for op in [OP_SHIFT, OP_RIGHT, OP_LEFT]:
+            top_five = islice(sorted(W[op].items(), key=lambda i: i[1], reverse=True), 5)
+            bottom_five = islice(sorted(W[op].items(), key=lambda i: i[1], reverse=False), 5)
 
-    print(f'{c} sentences learned.')
+            for a in zip(top_five, bottom_five):
+                print(*a)
 
     with open(WEIGHT_PATH, 'wb') as f:
         pkl.dump(W, f)
@@ -70,6 +76,7 @@ def bigram_feat_keys(prev, next, i):
     ]
     
 def shift_reduce(queue, W, mode='train'):
+    queue = deque(queue[:])
     heads = [None] * (len(queue)+1)
     stack = [Token(0, 'ROOT', 'ROOT', None, None)]
 
@@ -87,15 +94,16 @@ def shift_reduce(queue, W, mode='train'):
 
         if mode == 'train':
             corr = get_gold_operation(stack, queue)
-            for feat, count in feats.items():
-                W[ans][feat] -= count
-                W[corr][feat] += count
+            if ans != corr:
+                for feat, count in feats.items():
+                    W[ans][feat] -= count
+                    W[corr][feat] += count
             ans = corr
 
         # do operation
-        if corr == OP_SHIFT:
+        if ans == OP_SHIFT:
             stack.append(queue.popleft())
-        elif corr == OP_LEFT:
+        elif ans == OP_LEFT:
             heads[stack[-2].id] = stack[-1].id
             del stack[-2]
         else:
