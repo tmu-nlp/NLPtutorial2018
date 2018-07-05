@@ -10,10 +10,12 @@
     haag            elianti .
 ms.
 
-
+train:
+python train_sr.py <../../data/mstparser-en-train.dep
 '''
 from collections import defaultdict, deque
 import pickle as pkl
+from sys import stdin
 
 OP_SHIFT = 'SHIFT'
 OP_LEFT = 'LEFT'
@@ -135,10 +137,10 @@ class Token:
     def __repr__(self):
         return self.word
 
-def load_data(data_path='../../data/mstparser-en-train.dep'):
+def load_data(doc=stdin):
     sentence = []
-    for line in open(data_path):
-        line = line.strip()
+    for line in stdin:
+        line = line.rstrip().strip()
         if len(line) == 0:
             if len(sentence) > 0:
                 yield sentence
