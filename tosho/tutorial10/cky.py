@@ -80,6 +80,19 @@ def load_grammar(grammar_path='../../test/08-grammar.txt'):
             # [(S, NP, VP, log2(0.6)),...]
             nonterm.append((lhs, rhs[0], rhs[1], proba))
     
+    # give unk an average proba over all syms
+    unk_proba = defaultdict(list)
+    sum_proba = 0.
+    for rhs, lhs_list in preterm.items():
+        for lhs, proba in lhs_list:
+            unk_proba[lhs].append(proba)
+            sum_proba += proba
+    for rhs, probas in unk_proba.items():
+        unk_proba[rhs] = sum(probas) / sum_proba
+    *unk_proba, = zip(unk_proba.keys(), unk_proba.values())
+    
+    preterm.default_factory = (lambda: unk_proba)
+
     return nonterm, preterm
 
 if __name__ == '__main__':
