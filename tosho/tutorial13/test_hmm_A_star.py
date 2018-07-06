@@ -39,6 +39,8 @@ def hmm_viterbi(w, X, transition, possible_tags):
     heappush(h, (0, '0 <s>'))
     
     # 全可能性を探索する
+    # 素性を利用する方法の場合、ヒューリスティック関数は、
+    # 各タイムステップにおける、高々のスコアを計算すればよい。
     while len(h) != 0:
         _, prev_node = heappop(h)
         i, prev_tag = prev_node.split(' ')
