@@ -2,10 +2,10 @@ import random
 from collections import defaultdict, Counter
 import numpy as np
 
-def load_text(fname):
+def load_text(fname, delim = ' '):
     with open(fname, 'r') as fr:
         for line in fr:
-            yield line.strip().split(" ")
+            yield line.strip().split(delim)
 
 def load_label_text(fname = '../../data/titles-en-train.labeled'):
     with open(fname) as fr:
