@@ -3,16 +3,8 @@ from math import exp
 from random import randint
 import sys
 sys.path.append('..')
-from utils.data import load_train_dataset
+from utils.data import load_label_text_vocab
 
-def loadDataSet(fname = '../../data/titles-en-train.labeled'):
-    data = []; labels = []
-    vocab = defaultdict(lambda: len(vocab))
-    featurizer = lambda line:Counter(vocab[w] for w in line.split())
-    for feats, label in load_train_dataset(featurizer, fname):
-        labels.append(label)
-        data.append(feats)
-    return data, labels, vocab
 
 def selectJrand(i,m):
     j = i
@@ -141,8 +133,9 @@ def predict_raw(src, dst, vocab, weights, b):
             fw.write('%d\n' % (1 if res > 0 else -1))
 
 if __name__ == '__main__':
-    #x, y, v = loadDataSet('../../data/titles-en-train.labeled')
-    x, y, v = loadDataSet('short.labeled')
+    #y, x, v = load_label_text_vocab('../../data/titles-en-train.labeled')
+    y, x, v = load_label_text_vocab('short.labeled')
+    x = [Counter(idx) for idx in x]
     print('Vocab size', len(v))
     b, alphas = smo_platt(x, y, 200, 0.0001, 100, True)
     wdic = weights(alphas, y, x)

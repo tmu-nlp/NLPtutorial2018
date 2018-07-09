@@ -66,13 +66,13 @@ def print_ans(x_corpus, y_corpus):
 
 
 def x_given_k(x_counts, x, k, vocab):
-    alfa = 1
+    alfa = 0.01
     prob = (x_counts[f'{x}|{k}'] + alfa) / (x_counts[k] + (alfa * len(vocab)))
     return prob
 
 
 def k_given_y(y_counts, k, doc_id, topic_size):
-    beta = 1
+    beta = 0.01
     prob = (y_counts[f'{k}|{doc_id}'] + beta) / (y_counts[doc_id] + (beta * topic_size))
     return prob
 
@@ -87,5 +87,5 @@ def sample_one(probs):
 
 
 if __name__ == '__main__':
-    # sampling('../../test/07-train.txt', 2)
-    sampling('../../data/wiki-en-documents.word', 10)
+    sampling('../../test/07-train.txt', 2)
+    # sampling('../../data/wiki-en-documents.word', 10)

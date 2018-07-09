@@ -10,7 +10,7 @@ from random import shuffle
 from stemming.porter2 import stem
 import csv
 from functools import partial
-open = partial(open, encoding='UTF-8')
+# open = partial(open, encoding='UTF-8') # locale LC_CTYPE
 
 class Perceptron:
     def __init__(self, in_dim, weights = None):
@@ -87,16 +87,17 @@ def _vectorize(feat2id, inputs, bias):
     return vectors
 
 class Trainer:
-    def __init__(self, name, feature_maker = lambda x:Counter(x.strip().split())):
+    def __init__(self, name, featurizer = lambda x:Counter(x)):
         self._perceptron = None
         self._features = Counter()
         self._labels = []
         self._inputs = []
         self._name = name
-        self._featurize = feature_maker
+        self._featurize = featurizer
 
     def add_corpus(self, fname):
-        for x, y in data.load_train_dataset(self._featurize, fname):
+        for y, x in data.load_label_text(fname):
+            x = self._featurize(x)
             self._labels.append(y)
             self._inputs.append(x)
             self._features += x
@@ -217,7 +218,6 @@ class Trainer:
         return s
 
 def _split(x):
-    x = x.strip().split()
     x = tuple(map(stem, x))
     return Counter(x)# + Counter(' '.join(ng) for ng in n_gram(2, x))
 

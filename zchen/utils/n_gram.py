@@ -1,6 +1,7 @@
 from pickle import load, dump
 from collections import Counter, defaultdict
 from math import log
+from data import load_text
 
 s_tok = "s"
 _log_base = None
@@ -37,12 +38,10 @@ def count_n_gram_from_file(n, fname):
     # make padding
     sos, eos = make_padding( n-1 )
 
-    with open(fname, 'r') as fr:
-        for line in fr:
-            # apply padding for list of tokens
-            lot = line.strip().split(" ")
-            lot = sos + lot + eos if s_tok else lot
-            count_dict.update(n_gram(n, lot))
+    for lot in load_text(fname):
+        # apply padding for list of tokens
+        lot = sos + lot + eos if s_tok else lot
+        count_dict.update(n_gram(n, lot))
     return count_dict
 
 

@@ -67,4 +67,4 @@ def sample_one(probs):
             return k
 
 if __name__ == '__main__':
-    train(wiki_path, 20, num_epochs = 10)
+    train(test_path, 2, num_epochs = 10)
