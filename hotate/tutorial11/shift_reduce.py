@@ -26,12 +26,12 @@ class Queue:
     def calc_unproc(self):
         for queue in self.queue:
             if queue.head_ans != 0:
-                self.queue[queue.head_ans-1].unproc += 1
+                self.queue[queue.head_ans - 1].unproc += 1
 
 
 class Stack:
     def __init__(self):
-        self.stack = [Word(0, 'ROOT', 'ROOT', -1, 0,0,0,0)]
+        self.stack = [Word(0, 'ROOT', None, 'ROOT', None, None, 0, None)]
         self.result = []
 
     def shift(self, word):
@@ -88,10 +88,11 @@ class Feat:
 
 class Score:
     def __init__(self):
-        self.w_shift = defaultdict(int)
-        self.w_left = defaultdict(int)
-        self.w_right = defaultdict(int)
-        self.w = defaultdict(int)
+        self.w = {}
+
+        self.w['shift'] = defaultdict(int)
+        self.w['left'] = defaultdict(int)
+        self.w['right'] = defaultdict(int)
 
         self.shift = 0
         self.left = 0
@@ -104,15 +105,15 @@ class Score:
 
     def calc_shift(self, feat):
         for key, value in feat.feats.items():
-            self.shift += self.w_shift[key] * value
+            self.shift += self.w['shift'][key] * value
 
     def calc_left(self, feat):
         for key, value in feat.feats.items():
-            self.left += self.w_left[key] * value
+            self.left += self.w['left'][key] * value
 
     def calc_right(self, feat):
         for key, value in feat.feats.items():
-            self.right += self.w_right[key] * value
+            self.right += self.w['right'][key] * value
 
     def compare(self, stack, queue, pred):
         if len(stack.stack) > 1:
@@ -146,46 +147,7 @@ class Score:
         self.calc_right(feat)
         return self.compare(stack, queue, pred)
 
-    def update_shift(self, feat, mode):
-        for key, value in feat.feats.items():
-            if mode == 1:
-                self.w_shift[key] += value
-            else:
-                self.w_shift[key] -= value
-
-    def update_left(self, feat, mode):
-        for key, value in feat.feats.items():
-            if mode == 1:
-                self.w_left[key] += value
-            else:
-                self.w_left[key] -= value
-
-    def update_right(self, feat, mode):
-        for key, value in feat.feats.items():
-            if mode == 1:
-                self.w_right[key] += value
-            else:
-                self.w_right[key] -= value
-
     def update_weight(self, pred, corr, feat):
-        if pred == 'shift':
-            if corr == 'right':
-                self.update_shift(feat, 0)
-                self.update_right(feat, 1)
-            elif corr == 'left':
-                self.update_shift(feat, 0)
-                self.update_left(feat, 1)
-        elif pred == 'left':
-            if corr == 'shift':
-                self.update_left(feat, 0)
-                self.update_shift(feat, 1)
-            elif corr == 'right':
-                self.update_left(feat, 0)
-                self.update_right(feat, 1)
-        else:
-            if corr == 'shift':
-                self.update_right(feat, 0)
-                self.update_shift(feat, 1)
-            elif corr == 'left':
-                self.update_right(feat, 0)
-                self.update_left(feat, 1)
+        for key, value in feat.feats.items():
+            self.w[pred][key] -= value
+            self.w[corr][key] += value
