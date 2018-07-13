@@ -55,19 +55,19 @@ def initialize(file):
 
 
 if __name__ == '__main__':
-    path = '../../data/wiki-en-documents.word'.replace('/', os.sep)
-    # path = '../../test/07-train.txt'.replace('/', os.sep)
-    NUM_TOPICS = 4
-    NUM_EPOCH = 10
+    # path = '../../data/wiki-en-documents.word'.replace('/', os.sep)
+    path = '../../test/07-train.txt'.replace('/', os.sep)
+    NUM_TOPICS = 2
+    NUM_EPOCH = 5
     ALPHA = 0.01
     BETA = 0.01
 
     file = open(path, 'r', encoding='utf8')
     xcorpus, ycorpus, xcounts, ycounts, num_words = initialize(file)
 
-    ll = 0
     for num_epoch in tqdm(range(NUM_EPOCH), 'Epoch'):
-        for i in range(len(xcorpus)):
+        ll = 0
+        for i in tqdm(range(len(xcorpus)), 'xcorpus'):
             for j in range(len(xcorpus[i])):
                 x = xcorpus[i][j]
                 y = ycorpus[i][j]
@@ -81,7 +81,8 @@ if __name__ == '__main__':
                 ll += math.log(probs[new_y])
                 add_counts(x, new_y, i, 1, xcounts, ycounts)
                 ycorpus[i][j] = new_y
-        # print(ll)
+        print(ll)
+
     for i in range(len(xcorpus)):
         for j in range(len(xcorpus[i])):
             print(f'{xcorpus[i][j]}:{ycorpus[i][j]}\t', end='')

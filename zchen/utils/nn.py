@@ -1,221 +1,310 @@
 import numpy as np
-from n_gram import n_gram
-from data import load_train_dataset, split_dataset
+from n_gram import n_gram, interpolate_gen
+from data import split_dataset, S1DataSet
+#from multiprocessing import Pool#Process
+from tqdm import tqdm
+
+def turnoff_tqdm():
+    global tqdm
+    def nothing(x, **args):
+        return x
+    tqdm = nothing
 
 class Sigmoid:
-    def __call__(self, inputs):
+    @staticmethod
+    def call(inputs):
         # 1 / ( 1 + e^{-x} )
         np.exp(-inputs, out = inputs)
         np.add(inputs, 1, out = inputs)
         np.divide(1, inputs, out = inputs)
 
-    def grad(self, outputs, errors):
+    @staticmethod
+    def grad(outputs, errors):
         np.multiply(outputs * (1 - outputs), errors, out = errors)
 
-class Softmax:
-    def __init__(self):
-        self._sigmoid = Sigmoid()
+class Tanh:
+    @staticmethod
+    def call(inputs):
+        # 2 / ( 1 + e^{-2x} ) - 1
+        np.exp(-2*inputs, out = inputs)
+        np.add(inputs, 1, out = inputs)
+        np.divide(2, inputs, out = inputs)
+        inputs[:] -= 1
 
-    def __call__(self, inputs):
-        self._sigmoid(inputs)
+    @staticmethod
+    def grad(outputs, errors):
+        np.multiply( (1 - outputs ** 2), errors, out = errors)
+
+class Softmax:
+    @staticmethod
+    def call(inputs):
+        Sigmoid.call(inputs)
         n = np.sum(inputs)
         np.divide(inputs, n, out = inputs)
 
-    def grad(self, outputs, errors):
+    @staticmethod
+    def grad(outputs, errors):
         pass
 
 
 class SteepestGradientOptimizer:
     def __init__(self, learning_rate, momentum = 0.9):
-        self._ws = []
+        self._wu = []
         self._lr = learning_rate
-        self._mt = momentum
-        self._mm = None
+        self._mt = interpolate_gen(momentum) if momentum else None
+        self._mu = None
+        self._re = None
 
     def register(self, weights_updates):
-        self._ws.append(weights_updates)
+        self._wu.append(weights_updates)
+
+    def change_lr(self, ratio = 0.5):
+        self._lr *= ratio
+
+    def regularization(self, order, c):
+        if 0 < order < 3 and isinstance(order, int) and 0 < c < 1 and isinstance(c, float):
+            self._re = (order, c)
+        else:
+            self._re = None
+
+    def init_weights(self, func = np.zeros):
+        for w, _ in self._wu:
+            if func is np.zeros:
+                w[:] = 0
+            elif func is np.ones:
+                w[:] = 1
+            elif isinstance(func, (int, float)):
+                w[:] = func
+            else:
+                w[:] = func(size = w.shape)
 
     def __call__(self):
         if self._mt:
-            if self._mm is None:
-                self._mm = updates.copy()
+            if self._mu is None:
+                self._mu = [(u.copy(), u) for _, u in self._wu]
             else:
-                np.add((1-self._mt) * updates, self._mt * self._mm, out = self._mm)
-        self._ws += self._lr * (self._mm if self._mt else updates)
+                for m, u in self._mu:
+                    m[:] = self._mt(m, u)
+        for i, (w, u) in enumerate(self._wu):
+            w += self._lr * (self._mu[i][0] if self._mt else u)
+            if self._re:
+                order, c = self._re
+                if order == 1:
+                    w[np.where(np.abs(w) < c)] = 0
+                    w -= np.sign(w) * c
+                elif order == 2:
+                    w *= c
+            u[:] = 0
 
-class FeedForwardLayer:
-    def __init__(self, in_dim, out_dim, opt, **pararms):
-        initializer = params.get('initializer', np.random.uniform)
-        attr_shapes = {'_weights': (out_dim, in_dim), '_biases': (out_dim, 1)}
-        for w,s in attr_shapes.items:
-            try:
-                setattr(self, w, initializer(size = s))
-            except:
-                setattr(self, w, initializer(shape = s))
-        if params['mode'] == 'train':
+    def show(self):
+        for w, u in self._wu:
+            print(w)
+
+class Layer:
+    def forward(self, inputs, outputs):
+        raise NotImplementedError('')
+
+    def backward(self, output, errors, prev_errors):
+        raise NotImplementedError('')
+
+class FeedForwardLayer(Layer):
+    def __init__(self, in_dim, out_dim, act, opt = None):
+        self._weights = np.empty((in_dim, out_dim))
+        self._biases = np.empty(out_dim)
+        self._act = act if act else None
+        if opt: # training model
             self._updates = np.zeros_like(self._weights)
-        self._io = None
-        self._errors = None
-        self._act = act
-        self._opt = opt
+            self._bias_updates = np.zeros_like(self._biases)
+            opt.register((self._weights, self._updates))
+            opt.register((self._biases,  self._bias_updates))
 
-    def feed(self, inputs, prev_errors = None):
-        self._batch_size = batch_size = inputs.shape[1]
-        if self._io:
-            # in_place
-            if self._io[0].shape[0] != inputs.shape[0] or self._io[0].shape[1] > batch_size:
-                raise ValueError("feeding input in strange size.")
-            self._io[0] = inputs
-        else:
-            # initialize
-            outputs = np.empty((out_dim, batch_size))
-            self._io = [inputs, outputs]
-            # train mode
-            if prev_errors:
-                self._prev_errors = prev_errors
-                self._errors = errors = np.empty_like(outputs)
-                return outputs, errors
-            # predict mode
-            return outputs
+    def __str__(self):
+        s = 'FeedForwardLayer (%d->%d)' % self._weights.shape
+        #s += ' with %s'
+        return s
 
-    def forward(self):
-        # io.shape == (io_dim, batch_size)
-        i, o = self._io
-        o = o[:, self._batch_size:]
-        np.matmul(self._weights, i, out = o)
-        np.add(o, self._biases, out = o)
-        self._act(o)
+    def forward(self, inputs, outputs, flags):
 
-    @property
-    def outputs(self):
-        return self._io[1][:, self._batch_size]
+        def mp(i, o, f):
+            if len(i.shape) == 1:
+                f,t = i.shape + o.shape
+            else:
+                t = f
+            np.matmul(i[:f], self._weights, out = o[:t])
+            o[:t] += self._biases
+            if self._act:
+                self._act.call(o[:t])
 
-    def backward(self, errors):
-        # prepare
-        prev_errors = self._prev_errors
-        i, o = self._io
-        batch_size = self._batch_size
-        if errors.shape[1] < batch_size:
-            i = i[:, :batch_size]
-            o[:, batch_size:] = 0
-            o = o[:, :batch_size]
-            prev_errors[:, batch_size:] = 0
-            prev_errors = prev_errors[:, self._batch_size:]
-        # errors.shape == (out_dim, batch_size)
-        self._act.grad(o, errors)
-        np.matmul(self._weights.T, errors, out = prev_errors)
-        # (o, i) = (o, b) * (b, i)
-        np.matmul(errors, i.T, out = self._updates)
-        self._opt(self._updates)
+        # for FFNN, batch is like time serial
+        for i, o, f in zip(inputs, outputs, flags):
+            if f:
+                # self._pool.apply(mp, args = (i, o, f))
+                # also error in Process()
+                mp(i, o, f)
 
 
-class EmbeddingLayer:
-    def __init__(self, in_dim, out_dim, opt):
+    def backward(self, inputs, outputs, errors, flags, prev_errors = None):
+        if prev_errors is None:
+            prev_errors = [None] * len(flags)
+
+        for i, o, e, f, p in zip(inputs, outputs, errors, flags, prev_errors):
+            if f:
+                if len(i.shape) == 1:
+                    f,t = i.shape + o.shape
+                else:
+                    t = f
+                if self._act:
+                    self._act.grad(o[:t], e[:t])
+                if p is not None:
+                    np.matmul(self._weights, e[:t], out = p[:f])
+                # (o, i) = (o, b) * (b, i)
+                self._updates += np.outer(i[:f], e[:t])
+                self._bias_updates += e[:t]
+
+
+class EmbeddingLayer(Layer):
+    def __init__(self, in_dim, out_dim, opt = None):
         self._emb = np.random.uniform(size = (in_dim, out_dim))
-        self._opt = opt
-        self._io = None
+        if opt:
+            self._updates = np.zeros_like(self._emb)
+            opt.register((self._emb, self._updates))
 
-    def feed(self, inputs, updating = False):
-        batch_size, time_step = inputs.shape
-        initial = self._io is None
-        if initial:
-            out_dim = self._emb.shape[1]
-            outputs = np.empty((batch_size, time_step, out_dim))
-            self._io = [inputs, outputs]
-        else:
-            self._io[0] = inputs
+    def forward(self, inputs, outputs, flags):
+        # like FFNN, Embedding is not sensible to timestep or batch
+        # batch
+        for i, o, f in zip(inputs, outputs, flags):
+            # time
+            for pos in range(f):
+                o[pos] = self._emb[i[pos]]
 
-        for ii, i in np.ndenumerate(inputs):
-            self._io[1][ii] = self._emb[i]
+    def backward(self, inputs, errors, flag):
+        for i, o, f in zip(inputs, outputs, flags):
+            for pos in range(f):
+                self._updates[i[pos]] += errors[pos]
 
-        if initial:
-            #if updating:
-            return outputs
+class RecurrentLayer(Layer):
+    def __init__(self, in_dim, out_dim, act, opt = None):
+        self._square = np.empty((out_dim, out_dim))
+        self._in_weights = np.empty((out_dim, in_dim))
+        self._biases = np.empty(out_dim)
+        self._act = act
+        if opt:
+            self._sq_updates = np.zeros_like(self._square)
+            self._in_updates = np.zeros_like(self._in_weights)
+            self._bi_updates = np.zeros_like(self._biases)
+            opt.register((self._square, self._sq_updates))
+            opt.register((self._in_weights, self._in_updates))
+            opt.register((self._biases, self._bi_updates))
+
+    def forward(self, inputs, outputs, flags):
+        # batch
+        for i,o,f in zip(inputs, outputs, flags):
+            # thread
+            for pos in range(f):
+                np.matmul(i[pos], self._in_weights, out = o[pos])
+                if pos:
+                    o[pos] += np.matmul(o[pos - 1], self._square)
+            o[pos] += self._biases
+        if self._act:
+            self._act.call(outputs)# care for softmax
+
+    def backward(self, inputs, outputs, errors, flags, prev_errors = None):
+        if prev_errors is None:
+            prev_errors = [None] * len(flags)
+
+        for i, o, e, f, p in zip(inputs, outputs, errors, flags, prev_errors):
+            # single thread
+            for pos in reversed(range(f)):
+                if self._act:
+                    self._act.grad(o[pos], e[pos])
+                self._in_updates += np.outer(i[pos], e[pos])
+                self._sq_updates += np.outer(o[pos - 1], e[pos])
+                self._bi_updates += e[pos]
+                if p is not None:
+                    np.matmul(self._in_weights, e[pos], out = p[pos])
+                if pos:
+                    e[pos-1] += np.matmul(e[pos], self._square.T)
+
+def iter_chain(chain):
+    n = len(chain)
+    for i in range(n//2):
+        l = 2*i+1
+        yield chain[l-1], chain[l], chain[l+1]
 
 class Network:
-    def __init__(self, layer_shape_act, opt):
-        layers = []
-        for (i, _), (o, a) in n_gram(2, layer_shape_act):
-            layers.append(FeedForwardLayer(i, o, a, opt))
-        self._layers = layers
+    def __init__(self, layer_shape_act, dataset, opt = None):
+        # [b t dataset.x] (F, 40, Sigmoid) [b t 40] (R, dataset.y(None), Softmax) [b t dataset.y]
+        chain = [dataset]
+        for l,s,a in layer_shape_act:
+            if s is None:
+                chain.append(l(chain[-1].shape[-1], dataset.y_dim, a, opt))
+            else:
+                chain.append(l(chain[-1].shape[-1], s, a, opt))
+            # if s is None, the final layer
+            chain.append(dataset.create_buffer(s))
+        self._chain = chain
+        self._opt = opt
 
-    def train(self, epochs, train_set, valid_set):
-        # build connections
-        fisrt_batch = train_set.dummy_x
-        prev_errors = None
-        for layer in self._layers:
-            first_batch, prev_errors = layer.feed(fisrt_batch, prev_errors)
+    def __str__(self):
+        s = 'Network:\n'
+        s += ' (%s)\n' % str(self._chain[0]).replace('\n', ' ')
+        for elem in self._chain[1:]:
+            if isinstance(elem, np.ndarray):
+                s += ' %s\n' % str(elem.shape)
+            else:
+                s += ' [%s]\n' % str(elem)
+        return s
+
+    def train(self, epochs):
 
         best_model = None
         # train with train_set
-        for epoch in range(epochs):
+        dataset = self._chain[0]
+        backward_chain = [(i, np.empty_like(i)) if isinstance(i, np.ndarray) else i for i in reversed(self._chain)]
+        # (y, e) [layer] (y, e) [layer] (dataset.x)
+
+        for epoch in tqdm(range(epochs), desc = 'epoch'):
             # train
-            for batch in train_set:
+            mse = 0 # shall be determined by dataset
+            for X, Y, F in tqdm(dataset, total = dataset.num_batch, desc = 'batch'):
                 # forward
-                self._layers[0].feed(batch.x)
-                for layer in self._layers:
-                    layer.forward()
-                errors = self._layers[-1].outputs - batch.y
+                for dx, layer, dy in iter_chain(self._chain):
+                    if dx is dataset:
+                        layer.forward(X, dy, F)
+                    else:
+                        layer.forward(dx, dy, F)
+                # errors
+                errors = backward_chain[0][1][:] = Y - self._chain[-1]
+                errors[np.where(F==0)] = 0
+                mse += np.sum(errors**2)
+                # print('True Y', Y)
+                # print('Outputs:', self._chain[-1])
+                # print('Errors:', backward_chain[0])
                 # backward errors
-                self._layers[-1].backward(errors)
+                for (dy, ey), layer, dx in iter_chain(backward_chain):
+                    if dx is dataset:
+                        layer.backward(X, dy, ey, F)
+                    else:
+                        layer.backward(dx[0], dy, ey, F, dx[1])
+
+                self._opt()
+
 
             # validate and save current model
-            i, j = 0, 0
-            for batch in valid_set:
-                self._layers[0].feed(batch.x)
-                for layer in self._layers:
-                    layer.forward()
-                errors = (self._layers[-1].outputs - 0.5 > 0) != batch.y
-                i += np.sum(errors)
-                j += len(errors)
-            if best_model is None or best_model[0] > i/j:
-                summary = [layer.weights for layers in self._layers]
-                best_model = i/j, summary
+            #continue
+            #for X, Y, F in valid_set:
+            #    for dx, layer, dy in iter_chain(self._chain):
+            #        if dx is dataset:
+            #            layer.forward(X, dy, F)
+            #        else:
+            #            layer.forward(dx, dy, F)
+            #acc = valid_set.measure(self._chain[-1])
+            #if best_model is None or best_model[0] > acc:
+            #    summary = [layer.weights for layers in self._layers]
+            #    best_model = acc, summary
+            print("Epoch loss(#mse):", mse)
         # choose the best model with valid_set performance
         # return the best model
 
     def predict(self, with_x):
         pass
-
-
-class DataSet:
-    def __init__(self, fname, batch_size):
-        self._X = []
-        self._Y = []
-        vocab = defaultdict(lambda w:len(vocab))
-        for x, y in load_train_dataset(vocab, fname):
-            self._X.append(x)
-            self._Y.append(y)
-        self._vocab = vocab
-        self._batch_size = batch_size
-        self._reader = 0
-
-    def shuffle(self):
-        pass
-
-    def __iter__(self):
-        # make numpy batch
-        i = self._reader
-        x = self._X[i:i+self._batch_size]
-        y = self._Y[i:i+self._batch_size]
-        x = _vectorize(self._vocab, x)
-        y = np.asarray(y)
-        db = DataBatch(x, y)
-        self._reader += self._batch_size
-        return db
-
-    @property
-    def dummy_x(self):
-        x = self._X[:self._batch_size]
-        x = _vectorize(self._vocab, x)
-        return x
-
-
-class DataBatch:
-    def __init__(self, X, Y):
-        self.x = X
-        self.y = Y
-
-
-if __name__ == '__main__':
-    d
