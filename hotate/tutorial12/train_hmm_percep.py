@@ -8,7 +8,7 @@ def main(path):
     x_data, y_prime = make_train_data(path)
     transition, possible_tags = load_model(x_data, y_prime)
     w = defaultdict(int)
-    epoch = 20
+    epoch = 5
     for e in tqdm(range(epoch)):
         for x, y in zip(x_data, y_prime):
             y_hat = viterbi(w, x, transition, possible_tags)
@@ -17,7 +17,7 @@ def main(path):
             update_weight(w, phi_prime, 1)
             update_weight(w, phi_hat, -1)
 
-    pickle.dump(w, open('weight', 'wb'))
+    pickle.dump(w, open('weight_5', 'wb'))
     pickle.dump(transition, open('transition', 'wb'))
     pickle.dump(possible_tags, open('tags', 'wb'))
 
