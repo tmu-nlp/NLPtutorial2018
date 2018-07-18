@@ -4,7 +4,7 @@ import pickle
 
 
 def main(path):
-    w = pickle.load(open('weight_5', 'rb'))
+    w = pickle.load(open('weight_10', 'rb'))
     transition = pickle.load(open('transition', 'rb'))
     tags = pickle.load(open('tags', 'rb'))
     x_data = load_data(path)
@@ -26,17 +26,18 @@ if __name__ == '__main__':
     # main('../../test/05-test-input.txt')
     main('../../data/wiki-en-test.norm')
 
-# Accuracy: 85.80% (3915/4563)
+# Accuracy: 88.67% (4046/4563)
 #
 # Most common mistakes:
-# NN --> NNS      56
-# NN --> NNP      28
-# NN --> JJ       27
-# VBN --> NNS     21
-# JJ --> NN       21
-# NN --> VBG      19
-# NN --> VBN      17
-# IN --> RB       15
-# VBN --> JJ      14
-# JJ --> NNS      13
+# NNS --> NN      55
+# NN --> JJ       36
+# JJ --> NN       34
+# VBN --> NN      23
+# NNP --> NN      22
+# NNP --> JJ      17
+# RB --> JJ       13
+# VBN --> JJ      12
+# NN --> NNP      11
+# NN --> VBG      11
+
 
