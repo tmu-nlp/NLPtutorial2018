@@ -1,8 +1,5 @@
-import math
 import os
-# import queue
 
-from itertools import product
 from collections import defaultdict
 from collections import namedtuple
 from collections import deque
@@ -25,7 +22,7 @@ def make_feats(stack, queue):
             f'W-2 {s2.word} W-1 {s1.word}': 1,
             f'W-2 {s2.word} P-1 {s1.pos}': 1,
             f'P-2 {s2.pos} W-1 {s1.word}': 1,
-            f'P-2 {s2.pos} P-1 {s1.pos}': 1,})
+            f'P-2 {s2.pos} P-1 {s1.pos}': 1, })
     return phi
 
 
@@ -69,7 +66,7 @@ def update(feats, w, ans, corr):
 
 
 def shift_reduce(queue):
-    result = ['_\t'*6+'0\t_\n'] * len(queue)
+    result = ['_\t' * 6 + '0\t_\n'] * len(queue)
     stack = [Token(0, 'ROOT', 'ROOT', None, [0], -1)]
     while queue or len(stack) > 1:
         if len(stack) <= 1:
@@ -84,11 +81,9 @@ def shift_reduce(queue):
         if ans == 'SHIFT':
             stack.append(queue.popleft())
         elif ans == 'LEFT':
-            # stack[-2].pred = stack[-1].id_
             result[stack[-2].id_ - 1] = '_\t' * 6 + f'{stack[-1].id_}\t_\n'
             del stack[-2]
         else:
-            # stack[-1].pred = stack[-2].id_
             result[stack[-1].id_ - 1] = '_\t' * 6 + f'{stack[-2].id_}\t_\n'
             del stack[-1]
 
@@ -112,11 +107,9 @@ def shift_reduce_train(queue):
         if corr == 'SHIFT':
             stack.append(queue.popleft())
         elif corr == 'LEFT':
-            # stack[-2].pred = stack[-1].id_
             stack[-1].unproc[0] -= 1
             del stack[-2]
         else:
-            # stack[-1].pred = stack[-2].id_
             stack[-2].unproc[0] -= 1
             del stack[-1]
 
@@ -142,8 +135,7 @@ def init_unproc(queue):
 
 
 def train(path):
-    for epoch in range(1):
-    # for epoch in tq(range(10)):
+    for epoch in tq(range(5)):
         for sentence in load_mst(path):
             queue = deque(sentence)
             init_unproc(queue)
@@ -172,11 +164,16 @@ if __name__ == '__main__':
         'SHIFT': defaultdict(float),
         'LEFT': defaultdict(float),
         'RIGHT': defaultdict(float)}
-    Token = namedtuple('Token', ['id_', 'word', 'pos', 'head', 'unproc', 'pred'])
+    Token = namedtuple(
+        'Token', ['id_', 'word', 'pos', 'head', 'unproc', 'pred'])
     main()
 
 
 '''
 $ ../../script/grade-dep.py ans.dep ../../data/mstparser-en-test.dep
-61.543436% (2855/4639)
+
+61.543436% (2855/4639)  (epoch=1)
+67.794783% (3145/4639)  (epoch=5)
+66.501401% (3085/4639)  (epoch=10)
+66.458288% (3083/4639)  (epoch=20)
 '''
