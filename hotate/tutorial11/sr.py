@@ -9,7 +9,7 @@ def shift_reduce(queue):
     stack = Stack()
     stack.shift(queue.queue[0])
     queue.queue.pop(0)
-    while len(queue.queue) > 0 or len(stack.stack) > 2:
+    while len(queue.queue) > 0 or len(stack.stack) > 1:
         feat = Feat()
         feat.create_feats(stack, queue)
         score.shift_reduce(feat, stack, queue, pred=False)
@@ -62,7 +62,7 @@ def test(path):
 
 
 def print_file(f, result):
-    for r in result:
+    for r in result[1:]:
         print(
             f'{r.id}\t{r.word}\t{r.base}\t{r.pos}\t{r.pos2}\t{r.extend}\t{r.head_pred}\t{r.label}',
             file=f

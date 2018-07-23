@@ -116,29 +116,24 @@ class Score:
             self.right += self.w['right'][key] * value
 
     def compare(self, stack, queue, pred):
-        if len(stack.stack) > 1:
-
-            if self.shift >= self.left and self.shift >= self.right and len(queue.queue) > 0:
-                if pred:
-                    return 'shift'
-                else:
-                    stack.shift(queue.queue[0])
-                    queue.queue.pop(0)
-
-            elif self.left >= self.right:
-                if pred:
-                    return 'left'
-                else:
-                    stack.reduce_left()
-
+        if (self.shift >= self.left and self.shift >= self.right and len(queue.queue) > 0) or len(stack.stack) < 2:
+            if pred:
+                return 'shift'
             else:
-                if pred:
-                    return 'right'
-                else:
-                    stack.reduce_right()
+                stack.shift(queue.queue[0])
+                queue.queue.pop(0)
+
+        elif self.left >= self.right:
+            if pred:
+                return 'left'
+            else:
+                stack.reduce_left()
+
         else:
-            stack.shift(queue.queue[0])
-            queue.queue.pop(0)
+            if pred:
+                return 'right'
+            else:
+                stack.reduce_right()
 
     def shift_reduce(self, feat, stack, queue, pred):
         self.initialize()
