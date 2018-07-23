@@ -3,6 +3,7 @@ sys.path.append("..")
 from collections import defaultdict as ddict
 from typing import Dict, Tuple
 from utils.n_gram import unigram_smooth_gen, interpolate_gen, nlog_gen
+from utils.data import load_o_s_gen, load_text
 
 sos = '<s>'
 eos = '</s>'
@@ -116,17 +117,12 @@ class Hidden_Markov:
 if '__main__' == __name__:
     hmm = Hidden_Markov()
     # print(hmm)
-    with open("../../data/wiki-en-train.norm_pos") as fr:
-        for line in fr:
-            line = line.strip().split()
-            o_s_gen = (o_s.split('_') for o_s in line)
-            hmm.add(o_s_gen)
+    for o_s_gen in load_o_s_gen():
+        hmm.add(o_s_gen)
     hmm.seal()
     # print(hmm)
-    with open("../../data/wiki-en-test.norm") as fr:
-        for i, line in enumerate(fr):
-            line = line.strip().split()
-            hidden, verbose = hmm.get_hidden(line, verbose = True)
-            print(' '.join(hidden))
-            with open(f"tsv/{i}.tsv" , "w") as fw:
-                fw.write(verbose)
+    for i, lot in enumerate(load_text("../../data/wiki-en-test.norm")):
+        hidden, verbose = hmm.get_hidden(lot, verbose = True)
+        print(' '.join(hidden))
+        with open(f"tsv/{i}.tsv" , "w") as fw:
+            fw.write(verbose)
