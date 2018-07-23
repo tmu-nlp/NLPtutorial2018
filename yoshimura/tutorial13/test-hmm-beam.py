@@ -62,7 +62,7 @@ with open(test_path, 'r') as test_file:
             active_tags.append([tag for tag, score in sorted_my_best[:BEAM]])
         
         # </s>に対して同じ操作をを行う
-        for tag in active_tags[i + 1]:
+        for tag in active_tags[-1]:
             if f'{len_words} {tag}' in best_score and f'{tag} </s>' in transition:
                 # HMM遷移確率（タグの数は少ないので平滑化不要）
                 P_T = transition[f'{tag} </s>'] 
