@@ -18,8 +18,7 @@ def arguments_parse():
 
 def update_best(score, prev, next_, best_score, best_edge, my_best=None, next_tag=None):
     '最良のスコアとエッジを更新'
-    current_best_score = best_score[next_]
-    if current_best_score and score >= current_best_score:
+    if next_ in best_score and score >= best_score[next_]:
         return
     best_score[next_] = score
     best_edge[next_] = prev
@@ -43,17 +42,17 @@ def test_hmm(unk_prob=0.05, vocab_num=1e6, B=10):
         else:
             emission[f'{context} {word}'] = float(prob)
 
+
     # テスト
     # 出力ファイルオープン
     f = open(output_file, 'w', encoding='utf8')
 
     for line in open(test_file, encoding='utf8'):
         # 前向きステップ
-        words = line.split()
+        words = line.rstrip().split()
         l = len(words)
-        best_score = defaultdict(float)
-        best_edge = defaultdict(str)
-        # print(best_edge)
+        best_score = {}
+        best_edge = {}
         active_tags = []
         tags = possible_tags.keys()
         # BOS
@@ -70,12 +69,11 @@ def test_hmm(unk_prob=0.05, vocab_num=1e6, B=10):
                 prob_e = (1 - unk_prob) * emission[f'{next_} {words[i]}'] + unk_prob / vocab_num
                 score = best_score[f'{i} {prev}'] - log2(prob_t) - log2(prob_e)
                 update_best(score, f'{i} {prev}', f'{i+1} {next_}', best_score, best_edge, my_best, next_)
-                my_best[next_] = score
-            best_b = sorted(my_best.items(), key=lambda x: x[1], reverse=True)[:B]
+            best_b = sorted(my_best.items(), key=lambda x: x[1])[:B]
             active_tags.append([k for k, v in best_b])
         # EOS
         for tag in active_tags[-1]:
-            if not transition[f'{tag} </s>']:
+            if not transition[f'{tag} </s>'] or not best_score[f'{l} {tag}']:
                 continue
             score = best_score[f'{l} {tag}'] - log2(transition[f'{tag} </s>'])
             update_best(score, f'{l} {tag}', f'{l+1} </s>', best_score, best_edge)
@@ -84,8 +82,6 @@ def test_hmm(unk_prob=0.05, vocab_num=1e6, B=10):
         # 後ろ向きステップ
         tags = []
         next_edge = best_edge[f'{l+1} </s>']
-        from pprint import pprint
-        pprint(best_edge.values())
         while next_edge != '0 <s>':
             _, tag = next_edge.split()
             tags.append(tag)
@@ -100,6 +96,7 @@ def test_hmm(unk_prob=0.05, vocab_num=1e6, B=10):
 
 if __name__ == '__main__':
     import os
+    os.chdir(os.path.abspath(os.path.dirname(__file__)))
     args = arguments_parse()
 
     test_file = args.input if args.input else '../../data/wiki-en-test.norm'.replace('/', os.sep)
@@ -108,15 +105,50 @@ if __name__ == '__main__':
     # 時間の計測
     import time
     start = time.time()
-    test_hmm()
+    test_hmm(B=5)
     process_time = time.time() - start
     print(process_time)
 
-''' ビームサーチ
+
+''' ビームサーチ（ビーム幅 5）
 実行時間
-1.6322784423828125 sec
+2.0547356605529785 sec
+
+perl ..\..\script\gradepos.pl ..\..\data\wiki-en-test.pos my_answer.pos
+Accuracy: 90.73% (4140/4563)
+
+Most common mistakes:
+NNS --> NN      48
+NN --> JJ       27
+NNP --> NN      23
+JJ --> DT       22
+JJ --> NN       12
+NN --> IN       12
+VBN --> NN      12
+NN --> DT       10
+JJ --> VBN      10
+NNP --> JJ      9
+'''
 
 
+''' ビームサーチ (ビーム幅 10)
+実行時間
+5.513553142547607 sec
+
+perl ..\..\script\gradepos.pl ..\..\data\wiki-en-test.pos my_answer.pos
+Accuracy: 90.88% (4147/4563)
+
+Most common mistakes:
+NNS --> NN      46
+NN --> JJ       27
+JJ --> DT       22
+NNP --> NN      22
+VBN --> NN      12
+JJ --> NN       12
+NN --> IN       11
+NN --> DT       10
+NNP --> JJ      8
+VBN --> JJ      7
 
 '''
 
@@ -125,7 +157,6 @@ if __name__ == '__main__':
 17.593451023101807 sec
 
 perl ..\..\script\gradepos.pl ..\..\data\wiki-en-test.pos my_answer.pos
-
 Accuracy: 90.82% (4144/4563)
 
 Most common mistakes:
