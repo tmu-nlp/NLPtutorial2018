@@ -44,6 +44,7 @@ def calc_score(feats, w):
 
 
 def calc_correct(stack, heads, unproc):
+    # 強制シフト
     if len(stack) < 2:
         correct = 'shift'
     # 右が左の親で左に未処理の子供がいない
