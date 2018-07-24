@@ -2,15 +2,17 @@ import sys
 sys.path.append('..')
 from utils.data import load_text
 from collections import defaultdict
-from math import log2
+from math import log
+from nltk.tree import Tree
 
 def load_grammar(fname = '../../test/08-grammar.txt'):
     terms = defaultdict(list)
     nonterms = []
     for parent, children, prob in load_text(fname, '\t'):
         children = tuple(children.split(' '))
-        entropy = log2(float(prob))
+        entropy = -log(float(prob))
 
+        # separate rule by length
         if len(children) == 1:
             terms[children[0]].append((parent, entropy))
         else:
@@ -18,6 +20,9 @@ def load_grammar(fname = '../../test/08-grammar.txt'):
     return terms, nonterms
 
 def unk(terms):
+    # unlike n_gram model calculate prob by counting
+    # unk probability is given by the grammar
+    # whose entropy cannot be smoothed by interpolating
     unk_entropy = defaultdict(list)
     sum_entropy = 0
     for child, possible_parents in terms.items():
@@ -28,7 +33,7 @@ def unk(terms):
     # give unk an average entropy over all syms
     for parent, entropys in unk_entropy.items():
         # list of entropy -> entropy
-        unk_entropy[rhs] = sum(entropys) / sum_entropy
+        unk_entropy[parent] = sum(entropys) / sum_entropy
     *unk_entropy, = zip(unk_entropy.keys(), unk_entropy.values())
 
     # for unk (shared_parents, average entropy)
@@ -39,7 +44,8 @@ def bottom_up_ij(length):
     while coverage <= length:
         step = coverage - 1
         while step >= 0:
-            yield step, coverage + 1 # plus 1 for slicing & ranging
+            # plus 1 for pythonic consistency in slicing & ranging
+            yield step, coverage + 1
             step -= 1
         coverage += 1
 
@@ -90,4 +96,6 @@ if __name__ == '__main__':
     grammar = load_grammar('../../test/08-grammar.txt')
     for tokens in load_text('../../test/08-input.txt'):
         coverage_bag, root = bottom_up(tokens, grammar)
-        print(top_down(coverage_bag, tokens, root))
+        s = top_down(coverage_bag, tokens, root)
+        print(s)
+        Tree.fromstring(s).draw()

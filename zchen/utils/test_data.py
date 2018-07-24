@@ -1,5 +1,6 @@
 import unittest
 from data import S1DataSet, SSDataSet
+from data import sentence_gen
 
 class TestS1DataSet(unittest.TestCase):
     def __init__(self, *largs, **dargs):
@@ -15,11 +16,11 @@ class TestS1DataSet(unittest.TestCase):
 
     def test_iter(self):
         yhat = self.bow.create_buffer()
-        self.assertEqual(yhat.shape, (2,))
+        self.assertEqual(yhat.shape, (2,1))
         for X, Y, F in self.bow:
             print(X, Y, F)
         yhat = self.seq.create_buffer()
-        self.assertEqual(yhat.shape, (2,))
+        self.assertEqual(yhat.shape, (2,1))
         for X, Y, F in self.seq:
             print(X, Y, F)
 
@@ -38,5 +39,9 @@ class TestSSDataSet(unittest.TestCase):
         for X, Y, F in self.seq:
             print(X, Y, F)
 
+class Test_Functions(unittest.TestCase):
+    def test_sentence_gen(self):
+        for sentence in sentence_gen('../../data/mstparser-en-train.dep'):
+            print(sentence)
 if __name__ == '__main__':
     unittest.main()

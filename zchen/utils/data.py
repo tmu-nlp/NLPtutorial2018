@@ -5,7 +5,7 @@ import numpy as np
 def load_text(fname, delim = ' '):
     with open(fname, 'r') as fr:
         for line in fr:
-            yield line.strip().split(delim)
+            yield line.rstrip().split(delim)
 
 def load_label_text(fname = '../../data/titles-en-train.labeled'):
     with open(fname) as fr:
@@ -42,6 +42,36 @@ def load_tok_pos_vocab(fname):
         T.append(tok_idx)
         P.append(pos_idx)
     return T, P, tok_vocab, pos_vocab, maxlen
+
+from collections import deque
+#from collections import namedtuple
+#Token = namedtuple('Token', 'id, word, pos, head, in_degree')
+# this is handy, but it is a tuple, set attribute is not handy
+
+class Token:
+    def __init__(self, id, word, pos):
+        self.id = id
+        self.word = word
+        self.pos = pos
+        self.in_degree = 0
+        self.head = None
+
+def CoNLL_gen(fname):
+    sentence = []
+    for tags in load_text(fname, delim = '\t'):
+        if len(tags) == 8:
+            # ID Word Base POS POS2 ? Head Type
+            idx, word, base, pos, _, _, head, _ = tags
+            token = Token(int(idx), word, pos)
+            token.head = int(head)
+            sentence.append(token)
+        elif sentence:
+            queue = deque(sentence)
+            for token in queue:
+                if token.head:
+                    queue[token.head - 1].in_degree += 1
+            yield queue
+            sentence = []
 
 
 def split_dataset(inputs, outputs, train_set_ratio, shuffle = True):

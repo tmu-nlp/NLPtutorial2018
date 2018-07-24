@@ -96,7 +96,7 @@ def smo_platt(data, labels, noise_C, noise_toler, maxIter, verbose = False):
                 b1 -= labels[i] * (alphas[i] - alpha_i) * mii
                 b1 -= labels[j] * (alphas[j] - alpha_j) * mij
                 b2 = b - Ej
-                b2 -= labels[i] * (alphas[i] - alpha_j) * mji
+                b2 -= labels[i] * (alphas[i] - alpha_i) * mji
                 b2 -= labels[j] * (alphas[j] - alpha_j) * mjj
 
                 if 0 < alphas[i] < noise_C:
