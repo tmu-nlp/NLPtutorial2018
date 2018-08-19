@@ -3,6 +3,7 @@ from tqdm import tqdm
 import dill
 import pickle
 import random
+import sys
 
 
 epoch = int(sys.argv[1])
@@ -40,7 +41,7 @@ def CreateTrans(first_tag,next_tag):
 
     return phi_trans
 
-def hmm_viterbi(x):
+def hmm_viterbi(weight,x,possible_tags,dict_transition):
     l = len(x)
     best_score = dict()
     best_edge = dict()
@@ -116,7 +117,7 @@ def main():
             if i % 100 == 0:
                 print (i) 
             for x,y_prime in enumerate(data):
-                y_hat = hmm_viterbi(w,x)
+                y_hat = hmm_viterbi(weight,x,possible_tags,dict_transition)
                 phi_prime = CreateFeatures(x,y_prime)
                 phi_hat = CreateFeatures(x,y_hat)
                 weight += phi_prime - phi_hat
@@ -127,4 +128,3 @@ def main():
 
 if __name__=='__main__':
     main()
-    
